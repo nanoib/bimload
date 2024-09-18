@@ -5,6 +5,9 @@ $ftpUrl = $credentials.ftpUrl
 $username = $credentials.username
 $password = $credentials.password
 $localPath = $credentials.localPath
+$productName = $credentials.productName
+$fileVersionPattern = $credentials.fileVersionPattern
+$productVersionPattern = $credentials.productVersionPattern
 
 # Создайте объект FtpWebRequest
 $ftpRequest = [System.Net.FtpWebRequest]::Create($ftpUrl)
@@ -13,15 +16,15 @@ $ftpRequest.Credentials = New-Object System.Net.NetworkCredential($username, $pa
 
 # Получаем все установленные версии программы
 $programs = @(Get-WmiObject -Class Win32_Product |
-Where-Object { $_.Name -like "*BIM Вентиляция*" } |
+Where-Object { $_.Name -like "*$productName*" } |
 Sort-Object { [version]$_.Version } -Descending)
 
 if ($programs.Count -eq 0) {
-    Write-Host "Программа 'BIM Вентиляция' не найдена."
+    Write-Host "В списке приложений по запросу '$productName' ничо не найдено."
     $latestVersion = @{ Version = "0.0.0.00000" }
 } else {
     # Выводим найденные версии
-    Write-Host "Найдены следующие версии программы 'BIM Вентиляция':"
+    Write-Host "Найденные версии приложений по запросу '$productName':"
     $programs | ForEach-Object { Write-Host "Версия: $($_.Version)" }
 
     # Определяем старшую версию
@@ -42,7 +45,7 @@ try {
     $responseStream.Close()
     $ftpResponse.Close()
 
-    Write-Output "Список файлов:"
+    Write-Output "Список файлов на ftp:"
         Write-Output $filesList
 
     # Сортируем файлы по алфавиту и выбираем последний
@@ -52,10 +55,10 @@ try {
     $latestFile = $latestFile.Trim()
     
     # Извлекаем версию из имени файла
-    $ftpVersion = $latestFile -replace 'nanoVent240\((\d+)\)_x64\.exe', '$1'
+    $ftpVersion = $latestFile -replace $fileVersionPattern, '$1'
 
     # Извлекаем версию установленной программы
-    $installedVersion = $latestVersion.Version -replace '.*\.(\d{5})$', '$1'
+    $installedVersion = $latestVersion.Version -replace $productVersionPattern, '$1'
 
     # Сравниваем версии
     if ([int]$installedVersion -ge [int]$ftpVersion) {
@@ -70,7 +73,7 @@ try {
 
     # Проверка наличия файла в локальной папке
     if (Test-Path -Path $localFilePath) {
-        Write-Output "Файл $latestFile уже есть на диске. На ftp нет новых файлов!"
+        Write-Output "Файл $latestFile уже есть на диске. На FTP нет новых файлов!"
     } else {
         # Скачивание файла
         $downloadUrl = "$ftpUrl$latestFile"
