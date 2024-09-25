@@ -21,17 +21,17 @@
 
 function Get-PcLatestProgram($productName) {
     # Получаем все установленные версии программы
+    Write-Host "2 - Получаем список программ"
     $programs = @(Get-WmiObject -Class Win32_Product |
     Where-Object { $_.Name -like "*$productName*" } |
     Sort-Object { [version]$_.Version } -Descending)
     if ($programs.Count -eq 0) {
-        Write-Host "В списке приложений по запросу '$productName' ничо не найдено."
+        Write-Host "Не найдено ничо по запросу '$productName'"
         $pcLatestProgram = $false
     } else {
         # Выводим найденные версии
-        Write-Host "Найденные версии приложений по запросу '$productName':"
-        $programs | ForEach-Object { Write-Host "Версия: $($_.Version)" }
-
+        Write-Host "Найденные программы по запросу '$productName':"
+        $programs | ForEach-Object { Write-Host "$($_.Name), Версия: $($_.Version)" }
         # Определяем старшую версию
         $pcLatestProgram = $programs[0]
 
@@ -42,6 +42,7 @@ function Get-PcLatestProgram($productName) {
 function Get-PcLatestVersion($pcLatestProgram, $productVersionPattern) {
     # Извлекаем версию установленной программы
     $pcLatestVersion = $pcLatestProgram.Version -replace $productVersionPattern, '$1'
+    Write-Host "3 - Последняя установленная сборка определена: $pcLatestVersion"
     return $pcLatestVersion
 }
 
@@ -49,6 +50,7 @@ function Get-FtpLatestFile($ftpUrl, $ftpFolder, $username, [SecureString]$passwo
     try {
         # Составляем полный путь к файлу на FTP
         $ftpPath = [Uri]::new([Uri]$ftpUrl, $ftpFolder).AbsoluteUri
+        Write-Host "4 - Подключаемся к FTP: $ftpPath"
         # Создайте объект FtpWebRequest
         $ftpRequest = [System.Net.FtpWebRequest]::Create($ftpPath)
         $ftpRequest.Method = [System.Net.WebRequestMethods+Ftp]::ListDirectory
@@ -66,14 +68,14 @@ function Get-FtpLatestFile($ftpUrl, $ftpFolder, $username, [SecureString]$passwo
         $responseStream.Close()
         $ftpResponse.Close()
 
-        Write-Host "Список файлов на ftp:"
-        Write-Host ($filesList -join "`n")
-
         # Сортируем файлы по алфавиту и выбираем последний
         $ftpLatestFile = $filesList | Sort-Object | Select-Object -Last 1
 
         # Удаляем лишние пробелы и символы новой строки из имени файла
         $ftpLatestFile = $ftpLatestFile.Trim()
+
+        Write-Host "Найдено файлов и папок на FTP: $($filesList.Count)"
+        Write-Host "Файл с последней сборкой: $ftpLatestFile"
 
         return $ftpLatestFile
     } catch {
@@ -82,6 +84,19 @@ function Get-FtpLatestFile($ftpUrl, $ftpFolder, $username, [SecureString]$passwo
     }
 }
 
+function Compare-Versions($pcLatestVersion, $ftpLatestFile, $fileVersionPattern) {
+    # Извлекаем версию из имени файла
+    $ftpLatestVersion = $ftpLatestFile -replace $fileVersionPattern, '$1'
+
+    # Проверка необходимости установки новой версии
+    if ([int]$pcLatestVersion -ge [int]$ftpLatestVersion) {
+        Write-Host "5 - Решено - установленная версия ($pcLatestVersion) самая новая. Версия на FTP та же или младше ($ftpLatestVersion)."
+        return $false
+    } else {
+        Write-Host "5 - Решено - установленная версия ($pcLatestVersion) устаревшая. Доступна новая версия на FTP ($ftpLatestVersion)."
+        return $true
+    }
+}
 
 function Save-FtpFile($ftpUrl, $ftpFolder, $ftpLatestFile, $localFilePath, $username, [SecureString]$password) {
     # Скачивание файла
@@ -90,7 +105,7 @@ function Save-FtpFile($ftpUrl, $ftpFolder, $ftpLatestFile, $localFilePath, $user
     $webClient = New-Object System.Net.WebClient
     $webClient.Credentials = New-Object System.Net.NetworkCredential($username, $password)
 
-    Write-Output "Начало скачивания файла '$ftpLatestFile'..."
+    Write-Output "7 - Начало скачивания файла '$downloadFtpPath'..."
 
     # Запуск загрузки файла асинхронно
     $webClient.DownloadFileAsync($downloadUrl, $localFilePath)
@@ -101,13 +116,13 @@ function Save-FtpFile($ftpUrl, $ftpFolder, $ftpLatestFile, $localFilePath, $user
     }
 
     if (Test-Path -Path $localFilePath) {
-        Write-Output "Файл $ftpLatestFile успешно скачан."
+        Write-Output "Файл $ftpLatestFile успешно скачан в $localFilePath"
     }
 }
 
 
 function Uninstall-Program($pcLatestProgram) {
-    Write-Output "Удаление текущей версии программы: $($pcLatestProgram.Version)"
+    Write-Host "8 - Удаляется программа $(pcLatestProgram.Name), Версия: $($pcLatestProgram.Version)"
     $result = $pcLatestProgram.Uninstall()
     if ($result.ReturnValue -ne 0) {
         Write-Error "Ошибка при удалении программы. Код ошибки: $($result.ReturnValue)"
@@ -116,10 +131,10 @@ function Uninstall-Program($pcLatestProgram) {
 }
 
 function Install-Program($localFilePath) {
-    Write-Output "Начало установки новой версии программы..."
+    Write-Host "9 - Начало установки новой версии: $localFilePath"
     try {
         Start-Process -FilePath $localFilePath -ArgumentList "/quiet" -Wait -NoNewWindow
-        Write-Output "Новая версия программы успешно установлена."
+        Write-Output "Процесс установки завершен"
     } catch {
         Write-Error "Ошибка при установке новой версии программы: $_"
     }
@@ -135,29 +150,15 @@ function Update-Program {
         if ($pcLatestProgram) {
             Uninstall-Program($pcLatestProgram)
         } else {
-            Write-Output "Не определена программа для удаления."
+            Write-Host "8 - Удалять нечего"
         }
-
         # Установка новой версии программы
         Install-Program($localFilePath)
     } else {
-        Write-Output "Файл $localFilePath не найден или путь недействителен."
+        Write-Host "9 - Файл $localFilePath не найден. Установка программы пропущена"
     }
 }
 
-function Compare-Versions($pcLatestVersion, $ftpLatestFile, $fileVersionPattern) {
-    # Извлекаем версию из имени файла
-    $ftpLatestVersion = $ftpLatestFile -replace $fileVersionPattern, '$1'
-
-    # Проверка необходимости установки новой версии
-    if ([int]$pcLatestVersion -ge [int]$ftpLatestVersion) {
-        Write-Host "Установленная версия ($pcLatestVersion) самая новая. Версия на FTP та же или младше ($ftpLatestVersion). Скачивание не требуется."
-        return $false
-    } else {
-        Write-Host "Установленная версия ($pcLatestVersion) устаревшая. Доступна новая версия на FTP ($ftpLatestVersion)."
-        return $true
-    }
-}
 
 
 function Update-Bim {
@@ -165,6 +166,7 @@ function Update-Bim {
         $fileFolder,
         $credFileName
     )
+
 
     # Чтение пользовательских данных
     $credentials = Get-Credentials -fileFolder $fileFolder -fileName $credFileName
@@ -189,17 +191,17 @@ function Update-Bim {
         -ftpLatestFile $ftpLatestFile `
         -fileVersionPattern $credentials.fileVersionPattern
         
-    # Составляем путь к локальному файлу
-    $localFilePath = Join-Path -Path $credentials.localPath -ChildPath $ftpLatestFile
-
     # Скачивание файла
     if ($updateNeeded) {
-        Write-Output "Ищем файл на диске..."
+        # Составляем путь к локальному файлу
+        $localFilePath = Join-Path -Path $credentials.localPath -ChildPath $ftpLatestFile
+        Write-Host "6 - Ищем файл на диске: $localFilePath"
+
         if (Test-Path $localFilePath) {
-            Write-Output "Файл $ftpLatestFile уже есть на диске и будет установлен оттуда"
+            Write-Host "Файл уже есть на диске и будет установлен оттуда"
         } else {
             # Скачивание файла
-            Write-Output "Файл $ftpLatestFile не найден на диске"
+            Write-Host "Файл не найден на диске будем скачивать"
             Save-FtpFile `
             -ftpUrl $credentials.ftpUrl `
             -ftpFolder $credentials.ftpFolder `
@@ -208,14 +210,13 @@ function Update-Bim {
             -username $credentials.username `
             -password $securePassword
         }
+        # Переустановка программы
+        Update-Program -localFilePath $localFilePath -pcLatestProgram $pcLatestProgram
+
     } else {
-        Write-Output "Обновление не требуется. Выход"
-        exit 0
+        Write-Host "6 - Обновление не требуется"
     }
 
-    Write-Output "Значение localFilePath: $localFilePath"
-    # Переустановка программы
-    Update-Program -localFilePath $localFilePath -pcLatestProgram $pcLatestProgram
 }
 
 $fileFolder = Join-Path -Path $PSScriptRoot -ChildPath "creds"
@@ -223,6 +224,10 @@ $fileFolder = Join-Path -Path $PSScriptRoot -ChildPath "creds"
 Get-ChildItem -Path $fileFolder -Filter "*.credentials" | 
 ForEach-Object {
     $credFileName = $_.Name
-    Write-Output "Обработка файла: $credFileName"
+    Write-Host "1 - Обработка файла: $credFileName"
     Update-Bim -fileFolder $fileFolder -credFileName $credFileName
+    Write-Host "10 - Завершена обработка файла: $credFileName"
+    Write-Output ""
+    Write-Output ""
+
 }
