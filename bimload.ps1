@@ -102,27 +102,32 @@ function Save-FtpFile($ftpUrl, $ftpFolder, $ftpLatestFile, $localFilePath, $user
     # Скачивание файла
     $downloadFtpPath = "$ftpFolder$ftpLatestFile"
     $downloadUrl = [Uri]::new([Uri]$ftpUrl, $downloadFtpPath).AbsoluteUri
-    $webClient = New-Object System.Net.WebClient
-    $webClient.Credentials = New-Object System.Net.NetworkCredential($username, $password)
 
     Write-Output "7 - Начало скачивания файла '$downloadFtpPath'..."
 
-    # Запуск загрузки файла асинхронно
-    $webClient.DownloadFileAsync($downloadUrl, $localFilePath)
+    $webClient = New-Object System.Net.WebClient
+    $webClient.Credentials = New-Object System.Net.NetworkCredential($username, $password)
 
-    # Ожидание завершения загрузки
-    while ($webClient.IsBusy) {
-        Start-Sleep -Seconds 1
+    try {
+        $webClient.DownloadFile($downloadUrl, $localFilePath)
+        
+        if (Test-Path -Path $localFilePath) {
+            Write-Output "Файл успешно скачан в $localFilePath"
+        } else {
+            Write-Error "Не удалось найти скачанный файл в $localFilePath"
+        }
     }
-
-    if (Test-Path -Path $localFilePath) {
-        Write-Output "Файл $ftpLatestFile успешно скачан в $localFilePath"
+    catch {
+        Write-Error "Ошибка при скачивании файла: $_"
+    }
+    finally {
+        $webClient.Dispose()
     }
 }
 
 
 function Uninstall-Program($pcLatestProgram) {
-    Write-Host "8 - Удаляется программа $(pcLatestProgram.Name), Версия: $($pcLatestProgram.Version)"
+    Write-Host "8 - Удаляется программа $($pcLatestProgram.Name), Версия: $($pcLatestProgram.Version)"
     $result = $pcLatestProgram.Uninstall()
     if ($result.ReturnValue -ne 0) {
         Write-Error "Ошибка при удалении программы. Код ошибки: $($result.ReturnValue)"
@@ -198,7 +203,7 @@ function Update-Bim {
         Write-Host "6 - Ищем файл на диске: $localFilePath"
 
         if (Test-Path $localFilePath) {
-            Write-Host "Файл уже есть на диске и будет установлен оттуда"
+            Write-Host "7 - Файл уже есть на диске и будет установлен оттуда"
         } else {
             # Скачивание файла
             Write-Host "Файл не найден на диске будем скачивать"
