@@ -101,7 +101,7 @@ function Save-HttpFile($httpUrl, $httpLatestFile, $localFilePath) {
     $webClient = New-Object System.Net.WebClient
 
     try {
-        $webClient.DownloadFile($downloadUrl, $localFilePath)
+        $webClient.DownloadFileTaskAsync($downloadUrl, $localFilePath).GetAwaiter().GetResult()
         
         if (Test-Path -Path $localFilePath) {
             Write-Output "Файл успешно скачан в $localFilePath"
