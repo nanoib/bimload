@@ -44,6 +44,7 @@ function Get-PcLatestVersion($pcLatestProgram, $productVersionPattern) {
 function Get-HttpLatestFile($httpUrl) {
     try {
         # Download the HTML content
+        Write-Host "4 - Будем искать файлы на https: $httpUrl"
         $webClient = New-Object System.Net.WebClient
         $htmlContent = $webClient.DownloadString($httpUrl)
 
@@ -58,15 +59,15 @@ function Get-HttpLatestFile($httpUrl) {
             # Extract the text from the last match
             $latestFile = $lastMatch.Groups[1].Value
 
-            Write-Host "Latest file found: $latestFile"
+            Write-Host "Файл на https найден: $latestFile"
             return $latestFile
         } else {
-            Write-Warning "No matching span tags found on the page."
+            Write-Warning "Не найдено файлов на https!"
             return $null
         }
     }
     catch {
-        Write-Error "Error occurred while fetching or parsing the HTML: $_"
+        Write-Error "Ошибка при загрузке или парсинге html: $_"
         return $null
     }
     finally {
@@ -83,10 +84,10 @@ function Compare-Versions($pcLatestVersion, $httpLatestFile, $fileVersionPattern
 
     # Проверка необходимости установки новой версии
     if ([int]$pcLatestVersion -ge [int]$httpLatestVersion) {
-        Write-Host "5 - Решено - установленная версия ($pcLatestVersion) самая новая. Версия на HTTP та же или младше ($httpLatestVersion)."
+        Write-Host "5 - Решено - установленная версия ($pcLatestVersion) самая новая. Версия на https та же или младше ($httpLatestVersion)."
         return $false
     } else {
-        Write-Host "5 - Решено - установленная версия ($pcLatestVersion) устаревшая. Доступна новая версия на HTTP ($httpLatestVersion)."
+        Write-Host "5 - Решено - установленная версия ($pcLatestVersion) устаревшая. Доступна новая версия на https ($httpLatestVersion)."
         return $true
     }
 }
@@ -173,7 +174,7 @@ function Update-Bim {
     # Получение последней установленной версии программы 
     $pcLatestVersion = Get-PcLatestVersion -pcLatestProgram $pcLatestProgram -productVersionPattern $credentials.productVersionPattern
 
-    # Получение последней HTTP версии программы
+    # Получение последней https версии программы
     $httpLatestFile = Get-HttpLatestFile -httpUrl $credentials.httpUrl
         
     # Сравнение версии и завершение выполнения скрипта при необходимости
