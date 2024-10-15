@@ -1,15 +1,10 @@
 ﻿function Get-Credentials($fileFolder, $fileName) {
-    $ftpCredentialsPath = Join-Path -Path $fileFolder -ChildPath "ftp"
+
     $otherCredentialsPath = Join-Path -Path $fileFolder -ChildPath $fileName
-    
-    $ftpCredentials = Get-Content $ftpCredentialsPath | ConvertFrom-StringData
     $otherCredentials = Get-Content $otherCredentialsPath | ConvertFrom-StringData
     
     $credentials = @{
-        ftpUrl = $ftpCredentials.ftpUrl
-        username = $ftpCredentials.username
-        password = $ftpCredentials.password
-        ftpFolder=$otherCredentials.ftpFolder
+        httpUrl = $otherCredentials.httpUrl
         localPath = $otherCredentials.localPath
         productName = $otherCredentials.productName
         fileVersionPattern = $otherCredentials.fileVersionPattern
@@ -46,81 +41,63 @@ function Get-PcLatestVersion($pcLatestProgram, $productVersionPattern) {
     return $pcLatestVersion
 }
 
-function Get-FtpLatestFile($ftpUrl, $ftpFolder, $username, [SecureString]$password) {
-    $maxAttempts = 3
-    $attempt = 0
-    
-    while ($attempt -lt $maxAttempts) {
-        try {
-            # Составляем полный путь к файлу на FTP
-            $ftpPath = [Uri]::new([Uri]$ftpUrl, $ftpFolder).AbsoluteUri
-            Write-Host "4 - Подключаемся к FTP: $ftpPath"
-            
-            # Объект FtpWebRequest
-            $ftpRequest = [System.Net.FtpWebRequest]::Create($ftpPath)
-            $ftpRequest.Method = [System.Net.WebRequestMethods+Ftp]::ListDirectory
-            $ftpRequest.Credentials = New-Object System.Net.NetworkCredential($username, $password)
-            
-            # Ответ от сервера
-            $ftpResponse = $ftpRequest.GetResponse()
-            $responseStream = $ftpResponse.GetResponseStream()
-            $reader = New-Object System.IO.StreamReader($responseStream)
+function Get-HttpLatestFile($httpUrl) {
+    try {
+        # Download the HTML content
+        $webClient = New-Object System.Net.WebClient
+        $htmlContent = $webClient.DownloadString($httpUrl)
 
-            # Чтение списка файлов
-            $filesList = $reader.ReadToEnd().Split("`n") | Where-Object { $_ -ne "" }
-    
-            # Закрытие потоков
-            $reader.Close()
-            $responseStream.Close()
-            $ftpResponse.Close()
-    
-            # Сортируем файлы по алфавиту и выбираем последний
-            $ftpLatestFile = $filesList | Sort-Object | Select-Object -Last 1
-    
-            # Удаляем лишние пробелы и символы новой строки из имени файла
-            $ftpLatestFile = $ftpLatestFile.Trim()
-    
-            Write-Host "Найдено файлов и папок на FTP: $($filesList.Count)"
-            Write-Host "Файл с последней сборкой: $ftpLatestFile"
-            
-            return $ftpLatestFile
-        } 
-        catch {
-            $attempt++
-            Write-Warning "Попытка $attempt из $maxAttempts не удалась. Ошибка: $_"
-            if ($attempt -lt $maxAttempts) {
-                Start-Sleep -Seconds 5  # Ждем 5 секунд перед следующей попыткой
-            }
+        # Use regex to find all matching span tags
+        $pattern = '<span class="name">([^<]+)</span>'
+        $regexMatches = [regex]::Matches($htmlContent, $pattern)
+
+        if ($regexMatches.Count -gt 0) {
+            # Get the last match
+            $lastMatch = $regexMatches[$regexMatches.Count - 1]
+
+            # Extract the text from the last match
+            $latestFile = $lastMatch.Groups[1].Value
+
+            Write-Host "Latest file found: $latestFile"
+            return $latestFile
+        } else {
+            Write-Warning "No matching span tags found on the page."
+            return $null
         }
     }
-    
-    Write-Error "Не удалось получить список файлов с FTP после $maxAttempts попыток."
-    return $null
+    catch {
+        Write-Error "Error occurred while fetching or parsing the HTML: $_"
+        return $null
+    }
+    finally {
+        if ($webClient) {
+            $webClient.Dispose()
+        }
+    }
 }
 
-function Compare-Versions($pcLatestVersion, $ftpLatestFile, $fileVersionPattern) {
+
+function Compare-Versions($pcLatestVersion, $httpLatestFile, $fileVersionPattern) {
     # Извлекаем версию из имени файла
-    $ftpLatestVersion = $ftpLatestFile -replace $fileVersionPattern, '$1'
+    $httpLatestVersion = $httpLatestFile -replace $fileVersionPattern, '$1'
 
     # Проверка необходимости установки новой версии
-    if ([int]$pcLatestVersion -ge [int]$ftpLatestVersion) {
-        Write-Host "5 - Решено - установленная версия ($pcLatestVersion) самая новая. Версия на FTP та же или младше ($ftpLatestVersion)."
+    if ([int]$pcLatestVersion -ge [int]$httpLatestVersion) {
+        Write-Host "5 - Решено - установленная версия ($pcLatestVersion) самая новая. Версия на HTTP та же или младше ($httpLatestVersion)."
         return $false
     } else {
-        Write-Host "5 - Решено - установленная версия ($pcLatestVersion) устаревшая. Доступна новая версия на FTP ($ftpLatestVersion)."
+        Write-Host "5 - Решено - установленная версия ($pcLatestVersion) устаревшая. Доступна новая версия на HTTP ($httpLatestVersion)."
         return $true
     }
 }
 
-function Save-FtpFile($ftpUrl, $ftpFolder, $ftpLatestFile, $localFilePath, $username, [SecureString]$password) {
+function Save-HttpFile($httpUrl, $httpLatestFile, $localFilePath) {
     # Скачивание файла
-    $downloadFtpPath = "$ftpFolder$ftpLatestFile"
-    $downloadUrl = [Uri]::new([Uri]$ftpUrl, $downloadFtpPath).AbsoluteUri
+    $downloadUrl = [Uri]::new([Uri]$httpUrl, $httpLatestFile).AbsoluteUri
 
-    Write-Output "7 - Начало скачивания файла '$downloadFtpPath'..."
+    Write-Output "7 - Начало скачивания файла '$downloadUrl'..."
 
     $webClient = New-Object System.Net.WebClient
-    $webClient.Credentials = New-Object System.Net.NetworkCredential($username, $password)
 
     try {
         $webClient.DownloadFile($downloadUrl, $localFilePath)
@@ -189,7 +166,6 @@ function Update-Bim {
 
     # Чтение пользовательских данных
     $credentials = Get-Credentials -fileFolder $fileFolder -fileName $credFileName
-    $securePassword = ConvertTo-SecureString $credentials.password -AsPlainText -Force
 
     # Получение установленных программ
     $pcLatestProgram = Get-PcLatestProgram($credentials.productName) 
@@ -197,23 +173,19 @@ function Update-Bim {
     # Получение последней установленной версии программы 
     $pcLatestVersion = Get-PcLatestVersion -pcLatestProgram $pcLatestProgram -productVersionPattern $credentials.productVersionPattern
 
-    # Получение последней FTP версии программы
-    $ftpLatestFile = Get-FtpLatestFile `
-        -ftpUrl $credentials.ftpUrl `
-        -ftpFolder $credentials.ftpFolder `
-        -username $credentials.username `
-        -password $securePassword
+    # Получение последней HTTP версии программы
+    $httpLatestFile = Get-HttpLatestFile -httpUrl $credentials.httpUrl
         
     # Сравнение версии и завершение выполнения скрипта при необходимости
     $updateNeeded = Compare-Versions `
         -pcLatestVersion $pcLatestVersion `
-        -ftpLatestFile $ftpLatestFile `
+        -httpLatestFile $httpLatestFile `
         -fileVersionPattern $credentials.fileVersionPattern
         
     # Скачивание файла
     if ($updateNeeded) {
         # Составляем путь к локальному файлу
-        $localFilePath = Join-Path -Path $credentials.localPath -ChildPath $ftpLatestFile
+        $localFilePath = Join-Path -Path $credentials.localPath -ChildPath $httpLatestFile
         Write-Host "6 - Ищем файл на диске: $localFilePath"
 
         if (Test-Path $localFilePath) {
@@ -221,13 +193,10 @@ function Update-Bim {
         } else {
             # Скачивание файла
             Write-Host "Файл не найден на диске будем скачивать"
-            Save-FtpFile `
-            -ftpUrl $credentials.ftpUrl `
-            -ftpFolder $credentials.ftpFolder `
-            -ftpLatestFile $ftpLatestFile `
+            Save-HttpFile `
+            -httpUrl $credentials.httpUrl `
+            -httpLatestFile $httpLatestFile `
             -localFilePath $localFilePath `
-            -username $credentials.username `
-            -password $securePassword
         }
         # Переустановка программы
         Update-Program -localFilePath $localFilePath -pcLatestProgram $pcLatestProgram
