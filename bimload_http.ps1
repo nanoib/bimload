@@ -43,20 +43,20 @@ function Get-PcLatestVersion($pcLatestProgram, $productVersionPattern) {
 
 function Get-HttpLatestFile($httpUrl) {
     try {
-        # Download the HTML content
+        # Скачиваем html
         Write-Host "4 - Будем искать файлы на https: $httpUrl"
         $webClient = New-Object System.Net.WebClient
         $htmlContent = $webClient.DownloadString($httpUrl)
 
-        # Use regex to find all matching span tags
+        # Используем регулярные выражения для получения текста всех тегов span с классом name
         $pattern = '<span class="name">([^<]+)</span>'
         $regexMatches = [regex]::Matches($htmlContent, $pattern)
 
         if ($regexMatches.Count -gt 0) {
-            # Get the last match
+            # Извлекаем последний матч
             $lastMatch = $regexMatches[$regexMatches.Count - 1]
 
-            # Extract the text from the last match
+            # Извлекаем текст из последнего матча
             $latestFile = $lastMatch.Groups[1].Value
 
             Write-Host "Файл на https найден: $latestFile"
