@@ -1,4 +1,4 @@
-function Get-Credentials($fileFolder, $fileName) {
+﻿function Get-Credentials($fileFolder, $fileName) {
 
     $otherCredentialsPath = Join-Path -Path $fileFolder -ChildPath $fileName
     $otherCredentials = Get-Content $otherCredentialsPath | ConvertFrom-StringData
@@ -240,7 +240,7 @@ function Update-Bim {
         -httpLatestVersion $httpLatestVersion
 
     } else {
-        Write-Host "6 - Обновление не требуется"
+        Write-Host "6 - Обновление не требуется" -ForegroundColor Yellow
     }
 
 }
