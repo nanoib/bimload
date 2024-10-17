@@ -78,12 +78,13 @@ function Get-HttpLatestFile($httpUrl) {
 }
 
 
-function Compare-Versions($pcLatestVersion, $httpLatestFile, $fileVersionPattern) {
-    # Извлекаем версию из имени файла
-    $httpLatestVersion = $httpLatestFile -replace $fileVersionPattern, '$1'
+function Compare-Versions($pcLatestVersion, $httpLatestVersion) {
 
     # Проверка необходимости установки новой версии
-    if ([int]$pcLatestVersion -ge [int]$httpLatestVersion) {
+    if ($null -eq $pcLatestVersion -or $pcLatestVersion -eq '') {
+        Write-Host "5 - Решено - программа не установлена, будем устанавливать (версию $httpLatestVersion)." -ForegroundColor DarkGreen
+        return $true
+    } elseif ([int]$pcLatestVersion -ge [int]$httpLatestVersion) {
         Write-Host "5 - Решено - установленная версия ($pcLatestVersion) самая новая. Версия на https та же или младше ($httpLatestVersion)."
         return $false
     } else {
