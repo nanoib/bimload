@@ -1,4 +1,4 @@
-﻿function Get-Credentials($fileFolder, $fileName) {
+function Get-Credentials($fileFolder, $fileName) {
 
     $otherCredentialsPath = Join-Path -Path $fileFolder -ChildPath $fileName
     $otherCredentials = Get-Content $otherCredentialsPath | ConvertFrom-StringData
@@ -156,6 +156,29 @@ function Update-Program {
     }
 }
 
+function Test-UpdateStatus {
+    param (
+        $productName,
+        $productVersionPattern,
+        $httpLatestVersion
+    )
+
+    $pcLatestProgram = Get-PcLatestProgram($productName)
+    $pcLatestVersion = if ($pcLatestProgram) { 
+        Get-PcLatestVersion -pcLatestProgram $pcLatestProgram -productVersionPattern $productVersionPattern 
+    } else { 
+        $null 
+    }
+
+    if ($null -eq $pcLatestVersion -and $null -ne $httpLatestVersion) {
+        Write-Host "Не найдено $productName. Скорее всего, программа не установилась" -ForegroundColor Red
+    } elseif ($pcLatestVersion -eq $httpLatestVersion) {
+        Write-Host "Программа обновлена" -ForegroundColor Green
+    } elseif ($null -ne $pcLatestVersion -and [int]$pcLatestVersion -lt [int]$httpLatestVersion) {
+        Write-Host "Программа не обновилась или обновилась некорректно! Текущая версия ниже новейшей." -ForegroundColor Red
+    }
+}
+
 
 
 function Update-Bim {
@@ -201,6 +224,12 @@ function Update-Bim {
         }
         # Переустановка программы
         Update-Program -localFilePath $localFilePath -pcLatestProgram $pcLatestProgram
+              
+        # Проверка статуса обновления
+        Test-UpdateStatus `
+        -productName $credentials.productName  `
+        -productVersionPattern $credentials.productVersionPattern `
+        -httpLatestVersion $httpLatestVersion
 
     } else {
         Write-Host "6 - Обновление не требуется"
