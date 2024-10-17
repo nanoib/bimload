@@ -94,27 +94,26 @@ function Compare-Versions($pcLatestVersion, $httpLatestVersion) {
 }
 
 function Save-HttpFile($httpUrl, $httpLatestFile, $localFilePath) {
-    # Скачивание файла
     $downloadUrl = [Uri]::new([Uri]$httpUrl, $httpLatestFile).AbsoluteUri
 
-    Write-Output "7 - Начало скачивания файла '$downloadUrl'..."
-
-    $webClient = New-Object System.Net.WebClient
+    Write-Host "7 - Начало скачивания файла '$downloadUrl'..." -NoNewline
 
     try {
-        $webClient.DownloadFileTaskAsync($downloadUrl, $localFilePath).GetAwaiter().GetResult()
+        $ProgressPreference = 'SilentlyContinue'  # Отключаем индикатор прогресса
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $localFilePath
+        Write-Host " Завершено." -ForegroundColor Green
         
         if (Test-Path -Path $localFilePath) {
-            Write-Output "Файл успешно скачан в $localFilePath"
+            Write-Host "Файл успешно скачан в $localFilePath"
         } else {
-            Write-Error "Не удалось найти скачанный файл в $localFilePath"
+            Write-Host "Не удалось найти скачанный файл в $localFilePath" -ForegroundColor Red
         }
     }
     catch {
-        Write-Error "Ошибка при скачивании файла: $_"
+        Write-Host "Ошибка при скачивании файла: $_" -ForegroundColor Red
     }
     finally {
-        $webClient.Dispose()
+        $ProgressPreference = 'Continue'  # Возвращаем стандартное значение
     }
 }
 
@@ -208,12 +207,12 @@ function Update-Bim {
 
     # Получение последней https версии программы
     $httpLatestFile = Get-HttpLatestFile -httpUrl $credentials.httpUrl
+    $httpLatestVersion = $httpLatestFile -replace $credentials.fileVersionPattern, '$1'
         
     # Сравнение версии и завершение выполнения скрипта при необходимости
     $updateNeeded = Compare-Versions `
         -pcLatestVersion $pcLatestVersion `
-        -httpLatestFile $httpLatestFile `
-        -fileVersionPattern $credentials.fileVersionPattern
+        -httpLatestVersion $httpLatestVersion `
         
     # Скачивание файла
     if ($updateNeeded) {
