@@ -183,6 +183,14 @@ function Test-UpdateStatus {
 
 
 function Update-Bim {
+    [
+        Diagnostics.CodeAnalysis.SuppressMessageAttribute `
+        (
+            "PSAvoidUsingPlainTextForPassword", `
+            "", `
+            Justification="Credential filename is not a password" `
+        )
+    ]
     param (
         $fileFolder,
         $credFileName
