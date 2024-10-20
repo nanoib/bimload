@@ -171,89 +171,179 @@ function Test-UpdateStatus {
     }
 
     if ($null -eq $pcLatestVersion -and $null -ne $httpLatestVersion) {
-        Write-Host "Не найдено $productName. Скорее всего, программа не установилась" -ForegroundColor Red
+        return "Не найдено. Скорее всего, программа не установилась"
     } elseif ($pcLatestVersion -eq $httpLatestVersion) {
-        Write-Host "Программа обновлена" -ForegroundColor Green
+        return "Программа обновлена"
     } elseif ($null -ne $pcLatestVersion -and [int]$pcLatestVersion -lt [int]$httpLatestVersion) {
-        Write-Host "Программа не обновилась или обновилась некорректно! Текущая версия ниже новейшей." -ForegroundColor Red
+        return "Программа не обновилась или обновилась некорректно! Текущая версия ниже новейшей."
     }
+    return "Неизвестный статус"
 }
 
 
-
 function Update-Bim {
-    [
-        Diagnostics.CodeAnalysis.SuppressMessageAttribute `
-        (
-            "PSAvoidUsingPlainTextForPassword", `
-            "", `
-            Justification="Credential filename is not a password" `
-        )
-    ]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", "", Justification="Credential filename is not a password")]
     param (
         $fileFolder,
         $credFileName
     )
 
-
-    # Чтение пользовательских данных
     $credentials = Get-Credentials -fileFolder $fileFolder -fileName $credFileName
-
-    # Получение установленных программ
     $pcLatestProgram = Get-PcLatestProgram($credentials.productName) 
-
-    # Получение последней установленной версии программы 
     $pcLatestVersion = Get-PcLatestVersion -pcLatestProgram $pcLatestProgram -productVersionPattern $credentials.productVersionPattern
 
-    # Получение последней https версии программы
     $httpLatestFile = Get-HttpLatestFile -httpUrl $credentials.httpUrl
     $httpLatestVersion = $httpLatestFile -replace $credentials.fileVersionPattern, '$1'
         
-    # Сравнение версии и завершение выполнения скрипта при необходимости
-    $updateNeeded = Compare-Versions `
-        -pcLatestVersion $pcLatestVersion `
-        -httpLatestVersion $httpLatestVersion `
+    $updateNeeded = Compare-Versions -pcLatestVersion $pcLatestVersion -httpLatestVersion $httpLatestVersion
         
-    # Скачивание файла
     if ($updateNeeded) {
-        # Составляем путь к локальному файлу
         $localFilePath = Join-Path -Path $credentials.localPath -ChildPath $httpLatestFile
-        Write-Host "6 - Ищем файл на диске: $localFilePath"
-
-        if (Test-Path $localFilePath) {
-            Write-Host "7 - Файл уже есть на диске и будет установлен оттуда"
-        } else {
-            # Скачивание файла
-            Write-Host "Файл не найден на диске будем скачивать"
-            Save-HttpFile `
-            -httpUrl $credentials.httpUrl `
-            -httpLatestFile $httpLatestFile `
-            -localFilePath $localFilePath `
+        if (-not (Test-Path $localFilePath)) {
+            Save-HttpFile -httpUrl $credentials.httpUrl -httpLatestFile $httpLatestFile -localFilePath $localFilePath
         }
-        # Переустановка программы
         Update-Program -localFilePath $localFilePath -pcLatestProgram $pcLatestProgram
-              
-        # Проверка статуса обновления
-        Test-UpdateStatus `
-        -productName $credentials.productName  `
-        -productVersionPattern $credentials.productVersionPattern `
-        -httpLatestVersion $httpLatestVersion
-
+        
+        $newStatus = Test-UpdateStatus -productName $credentials.productName -productVersionPattern $credentials.productVersionPattern -httpLatestVersion $httpLatestVersion
+        $newVersion = Get-PcLatestVersion -pcLatestProgram (Get-PcLatestProgram($credentials.productName)) -productVersionPattern $credentials.productVersionPattern
+        
+        return @{
+            Status = $newStatus
+            OldVersion = $pcLatestVersion
+            NewVersion = $newVersion
+        }
     } else {
-        Write-Host "6 - Обновление не требуется" -ForegroundColor Yellow
+        return @{
+            Status = "Обновление не требуется"
+            OldVersion = $pcLatestVersion
+            NewVersion = $pcLatestVersion
+        }
     }
-
 }
 
+# Определяем путь к папке с файлами учетных данных
 $fileFolder = Join-Path -Path $PSScriptRoot -ChildPath "creds"
 
-Get-ChildItem -Path $fileFolder -Filter "*.credentials" | 
-ForEach-Object {
-    $credFileName = $_.Name
-    Write-Host "1 - Обработка файла: $credFileName"
-    Update-Bim -fileFolder $fileFolder -credFileName $credFileName
-    Write-Host "10 - Завершена обработка файла: $credFileName"
-    Write-Output ""
-    Write-Output ""
+# Подключаем необходимые сборки для работы с Windows Forms
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
+# Функция для создания и отображения графического интерфейса
+
+function Show-UpdateInterface {
+    # Создаем основное окно приложения
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = 'Bimload — Developer BIM Update Manager'
+    $form.Size = New-Object System.Drawing.Size(740,430)  # Увеличиваем ширину окна
+    $form.StartPosition = 'CenterScreen'
+    $form.FormBorderStyle = 'FixedSingle'
+    $form.MaximizeBox = $false
+
+    # Создаем список с чекбоксами для отображения программ
+    $checkboxList = New-Object System.Windows.Forms.ListView
+    $checkboxList.Location = New-Object System.Drawing.Point(10,10)
+    $checkboxList.Size = New-Object System.Drawing.Size(700,250)  # Увеличиваем ширину списка
+    $checkboxList.View = [System.Windows.Forms.View]::Details
+    $checkboxList.CheckBoxes = $true
+    $checkboxList.FullRowSelect = $true
+    $checkboxList.Columns.Add("Файл конфигурации", 180)
+    $checkboxList.Columns.Add("Название продукта", 200)
+    $checkboxList.Columns.Add("Текущая версия", 100)  # Новый столбец
+    $checkboxList.Columns.Add("Новая версия", 100)  # Новый столбец
+    $checkboxList.Columns.Add("Статус", 160)
+    $form.Controls.Add($checkboxList)
+
+    # Создаем список изображений для иконок
+    $imageList = New-Object System.Windows.Forms.ImageList
+    $imageList.ImageSize = New-Object System.Drawing.Size(16, 16)
+    $iconPath = Join-Path -Path $PSScriptRoot -ChildPath "icons"
+    $imageList.Images.Add([System.Drawing.Image]::FromFile("$iconPath\question.png"))
+    $imageList.Images.Add([System.Drawing.Image]::FromFile("$iconPath\wait.png"))
+    $imageList.Images.Add([System.Drawing.Image]::FromFile("$iconPath\ok.png"))
+    $imageList.Images.Add([System.Drawing.Image]::FromFile("$iconPath\error.png"))
+    $checkboxList.SmallImageList = $imageList
+
+    # Создаем кнопку для выбора/отмены всех элементов списка
+    $toggleAllButton = New-Object System.Windows.Forms.Button
+    $toggleAllButton.Location = New-Object System.Drawing.Point(10,270)
+    $toggleAllButton.Size = New-Object System.Drawing.Size(660,30)  # Увеличиваем ширину кнопки
+    $toggleAllButton.Text = 'Выбрать/Отменить все'
+    $form.Controls.Add($toggleAllButton)
+
+    # Создаем кнопку для запуска обновления выбранных программ
+    $updateButton = New-Object System.Windows.Forms.Button
+    $updateButton.Location = New-Object System.Drawing.Point(10,310)
+    $updateButton.Size = New-Object System.Drawing.Size(660,30)  # Увеличиваем ширину кнопки
+    $updateButton.Text = 'Обновить выбранные программы'
+    $form.Controls.Add($updateButton)
+
+    # Создаем метку для отображения статуса операции
+    $statusLabel = New-Object System.Windows.Forms.Label
+    $statusLabel.Location = New-Object System.Drawing.Point(10,350)
+    $statusLabel.Size = New-Object System.Drawing.Size(960,30)  # Увеличиваем ширину метки
+    $statusLabel.Text = 'Готов к обновлению'
+    $form.Controls.Add($statusLabel)
+
+    # Получаем список файлов учетных данных
+    $fileFolder = Join-Path -Path $PSScriptRoot -ChildPath "creds"
+    $credFiles = Get-ChildItem -Path $fileFolder -Filter "*.credentials"
+
+    # Заполняем список программами из файлов учетных данных
+    foreach ($file in $credFiles) {
+        $credentials = Get-Credentials -fileFolder $fileFolder -fileName $file.Name
+        $item = New-Object System.Windows.Forms.ListViewItem($file.Name)
+        $item.SubItems.Add($credentials.productName)
+        $item.SubItems.Add("")  # Пустая ячейка для текущей версии
+        $item.SubItems.Add("")  # Пустая ячейка для новой версии
+        $item.SubItems.Add("Ожидание")
+        $item.ImageIndex = 0  # Индекс иконки question.png
+        $item.Checked = $true
+        $checkboxList.Items.Add($item)
+    }
+
+    # Обработчик события для кнопки выбора/отмены всех элементов
+    $toggleAllButton.Add_Click({
+        $allChecked = ($checkboxList.CheckedItems.Count -eq $checkboxList.Items.Count)
+        foreach ($item in $checkboxList.Items) {
+            $item.Checked = !$allChecked
+        }
+    })
+
+    # Обработчик события для кнопки обновления
+    $updateButton.Add_Click({
+        $statusLabel.Text = "Выполняется обновление..."
+        $form.Refresh()
+    
+        # Перебираем все выбранные элементы и запускаем обновление
+        foreach ($item in $checkboxList.Items) {
+            if ($item.Checked) {
+                $credFileName = $item.Text
+                $item.SubItems[4].Text = "Обновляется..."
+                $item.ImageIndex = 1  # Индекс иконки wait.png
+                $checkboxList.Refresh()
+                
+                $result = Update-Bim -fileFolder $fileFolder -credFileName $credFileName
+                
+                # Обновляем информацию в списке
+                $item.SubItems[2].Text = $result.OldVersion  # Текущая версия
+                $item.SubItems[3].Text = $result.NewVersion  # Новая версия
+                $item.SubItems[4].Text = $result.Status  # Статус
+                
+                # Устанавливаем соответствующую иконку
+                switch -Regex ($result.Status) {
+                    "обновлена|не требуется" { $item.ImageIndex = 2 }  # ok.png
+                    default { $item.ImageIndex = 3 }  # error.png
+                }
+                $checkboxList.Refresh()
+            }
+        }
+    
+        $statusLabel.Text = "Обновление завершено"
+    })
+
+    # Отображаем форму
+    $form.ShowDialog()
 }
+
+# Вызываем функцию для отображения интерфейса
+Show-UpdateInterface
