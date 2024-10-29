@@ -5,8 +5,13 @@
 
 Скрипт *bimload* автоматизирует получение новых версий ПО с FTP-сервера (или http-сервера) и дальнейшую переустановку ПО. Скрипт использует средство автоматизации **Windows PowerShell** от Microsoft.
 
-Пример вывода скрипта в терминал при успешной работе:
 
+Графический интерфейс:  
+<img src="./git/readme/gui.png" width=50%>
+</br>
+</br>
+
+Кроме графического интерфейса, происходит вывод скрипта в терминал. Пример вывода при успешной работе:  
 <img src="./git/readme/readme_terminal_pic.png" width=70%>
 
 # Содержание
@@ -101,6 +106,7 @@
 # Используемые технологии
 
 * [.NET Framework](https://learn.microsoft.com/ru-ru/dotnet/framework/)
+* [Windows Forms](https://learn.microsoft.com/ru-ru/dotnet/desktop/winforms/overview/?view=netdesktop-8.0)
 * [Windows PowerShell](https://github.com/PowerShell/PowerShell)
 * [Windows Management Instrumentation (Инструментарий управления Windows)](https://learn.microsoft.com/ru-ru/windows/win32/wmisdk/wmi-start-page) 
 * [Windows Script Host (Сервер сценариев Windows)](https://learn.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2003/cc738350(v=ws.10))
