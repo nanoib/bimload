@@ -1,4 +1,4 @@
-﻿# Подключаем необходимые сборки для работы с Windows Forms
+# Подключаем необходимые сборки для работы с Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -46,11 +46,6 @@ function Show-UpdateInterface {
     $gridHeight = 250
     $dataGridView.Size = New-Object System.Drawing.Size($gridWidth, $gridHeight)
 
-    # Обновляем размер формы
-    $formNeathPadding = 200
-    $formHeigth = $gridHeight + $formNeathPadding
-    $form.Size = New-Object System.Drawing.Size($formWidth, $formHeigth)
-
     # Добавляем столбцы
     $checkBoxColumn = New-Object System.Windows.Forms.DataGridViewCheckBoxColumn
     $checkBoxColumn.HeaderText = ""
@@ -86,8 +81,13 @@ function Show-UpdateInterface {
     }
     
     # Создаем кнопку для выбора/отмены всех элементов списка
+    $buttonsOffset = 10
+    $buttonRightPadding = 30
     $toggleAllButton = New-Object System.Windows.Forms.Button
-    $toggleAllButton.Location = New-Object System.Drawing.Point(10,270)
+    $toggleAllButton.Location = New-Object System.Drawing.Point(
+        10,
+        ($dataGridView.Bottom+$buttonsOffset)
+        )
     $toggleAllButton.Text = 'Выбрать все'
     $toggleAllButton.AutoSize = $true
     $toggleAllButton.Padding = New-Object System.Windows.Forms.Padding(5, 2, 5, 2)
@@ -95,30 +95,28 @@ function Show-UpdateInterface {
 
     # Создаем кнопку для запуска обновления выбранных программ
     $updateButton = New-Object System.Windows.Forms.Button
-    $updateButton.Location = New-Object System.Drawing.Point(10,310)
+    $updateButton.Location = New-Object System.Drawing.Point(
+        ($toggleAllButton.Right + $buttonRightPadding),
+        $toggleAllButton.Top
+    )
     $updateButton.Text = 'Обновить'
     $updateButton.AutoSize = $true
     $updateButton.Padding = New-Object System.Windows.Forms.Padding(5, 2, 5, 2)
     $form.Controls.Add($updateButton)
 
     # Создаем метку для отображения статуса операции
+    $statusLabelOffset = 10
     $statusLabel = New-Object System.Windows.Forms.Label
-    $statusLabel.Location = New-Object System.Drawing.Point(10,350)
+    $statusLabel.Location = New-Object System.Drawing.Point(10,($logTextBox.Bottom+$statusLabelOffset))
     $statusLabel.Size = New-Object System.Drawing.Size($gridWidth,30)  # Увеличиваем ширину метки
     $statusLabel.Text = 'Готов к обновлению'
     $form.Controls.Add($statusLabel)
 
+    # Обновляем размер формы
+    $formNeathPadding = 30
+    $formHeigth = $statusLabel.Bottom + $formNeathPadding
+    $form.Size = New-Object System.Drawing.Size($formWidth, $formHeigth)
 
-
-
-    # Обновляем позиции остальных элементов
-    $rightPadding = 30  # Отступ справа
-    $toggleAllButton.Location = New-Object System.Drawing.Point(10,270)
-    $updateButton.Location = New-Object System.Drawing.Point(
-        ($toggleAllButton.Right + $rightPadding),
-        $toggleAllButton.Top
-    )
-    $statusLabel.Location = New-Object System.Drawing.Point(10, 400)
 
     # Заполняем DataGridView данными
     $fileFolder = Join-Path -Path $PSScriptRoot -ChildPath "..\creds"
