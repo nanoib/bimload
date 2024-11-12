@@ -1,10 +1,14 @@
-# Подключаем необходимые сборки для работы с Windows Forms
+﻿# Подключаем необходимые сборки для работы с Windows Forms
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 # Функция для создания и отображения графического интерфейса
 
 function Show-UpdateInterface {
+    param(
+        [Parameter(Mandatory=$true)]
+        [hashtable]$SyncHash
+    )
     # Создаем основное окно приложения
     $form = New-Object System.Windows.Forms.Form
     $form.Text = 'Bimload — Developer BIM Update Manager'
@@ -103,6 +107,20 @@ function Show-UpdateInterface {
     $updateButton.AutoSize = $true
     $updateButton.Padding = New-Object System.Windows.Forms.Padding(5, 2, 5, 2)
     $form.Controls.Add($updateButton)
+
+
+    # Создаем RichTextBox для логов
+    $logTextBoxOffset = 10
+    $logTextBoxHeigth = 75
+    $logTextBoxWidth = $gridWidth
+    $logTextBox = New-Object System.Windows.Forms.RichTextBox
+    $logTextBox.Location = New-Object System.Drawing.Point(10, ($toggleAllButton.Bottom+$logTextBoxOffset))
+    $logTextBox.Size = New-Object System.Drawing.Size($logTextBoxWidth, $logTextBoxHeigth)
+    $logTextBox.ReadOnly = $true
+    $form.Controls.Add($logTextBox)
+
+    # Присваиваем RichTextBox синхронизированному хэшу
+    $SyncHash.LogTextBox = $logTextBox
 
     # Создаем метку для отображения статуса операции
     $statusLabelOffset = 10

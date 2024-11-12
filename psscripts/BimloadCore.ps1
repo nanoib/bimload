@@ -1,4 +1,32 @@
-﻿function Get-Credentials($fileFolder, $fileName) {
+﻿function Write-Log {
+    param (
+        [string]$Message,
+        [System.Drawing.Color]$Color = [System.Drawing.Color]::Black,
+        [bool]$Bold = $false
+    )
+    
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logMessage = "[$timestamp] $Message"
+    
+    # Отправляем сообщение в GUI
+    $syncHash.LogTextBox.Invoke([Action]{
+        $syncHash.LogTextBox.SelectionStart = $syncHash.LogTextBox.TextLength
+        $syncHash.LogTextBox.SelectionLength = 0
+        $syncHash.LogTextBox.SelectionColor = $Color
+        if ($Bold) {
+            $syncHash.LogTextBox.SelectionFont = New-Object System.Drawing.Font($syncHash.LogTextBox.Font, [System.Drawing.FontStyle]::Bold)
+        } else {
+            $syncHash.LogTextBox.SelectionFont = $syncHash.LogTextBox.Font
+        }
+        $syncHash.LogTextBox.AppendText($logMessage + "`n")
+        $syncHash.LogTextBox.ScrollToCaret()
+    })
+    
+    # Также выводим в консоль
+    Write-Host $logMessage
+}
+
+function Get-Credentials($fileFolder, $fileName) {
     $prodCredentialsPath = Join-Path -Path $fileFolder -ChildPath $fileName
     
     # Читаем файл и фильтруем строки, начинающиеся с '#'
@@ -59,13 +87,13 @@ function Compare-Versions($pcLatestVersion, $serverLatestVersion) {
 
     # Проверка необходимости установки новой версии
     if ($null -eq $pcLatestVersion -or $pcLatestVersion -eq '') {
-        Write-Host "5 - Решено - программа не установлена, будем устанавливать (версию $serverLatestVersion)." -ForegroundColor DarkGreen
+        Write-Log -Message "5 - Решено - программа не установлена, будем устанавливать (версию $serverLatestVersion)."
         return $true
     } elseif ([int]$pcLatestVersion -ge [int]$serverLatestVersion) {
-        Write-Host "5 - Решено - установленная версия ($pcLatestVersion) самая новая. Версия на сервере та же или младше ($serverLatestVersion)."
+        Write-Log -Message "5 - Решено - установленная версия ($pcLatestVersion) самая новая. Версия на сервере та же или младше ($serverLatestVersion)."
         return $false
     } else {
-        Write-Host "5 - Решено - установленная версия ($pcLatestVersion) устаревшая. Доступна новая версия на сервере ($serverLatestVersion)."
+        Write-Log -Message "5 - Решено - установленная версия ($pcLatestVersion) устаревшая. Доступна новая версия на сервере ($serverLatestVersion)."
         return $true
     }
 }
@@ -73,7 +101,7 @@ function Compare-Versions($pcLatestVersion, $serverLatestVersion) {
 
 
 function Uninstall-Program($pcLatestProgram) {
-    Write-Host "8 - Удаляется программа $($pcLatestProgram.Name), Версия: $($pcLatestProgram.Version)"
+    Write-Log -Message "8 - Удаляется программа $($pcLatestProgram.Name), Версия: $($pcLatestProgram.Version)"
     $result = $pcLatestProgram.Uninstall()
     if ($result.ReturnValue -ne 0) {
         Write-Error "Ошибка при удалении программы. Код ошибки: $($result.ReturnValue)"
@@ -82,7 +110,7 @@ function Uninstall-Program($pcLatestProgram) {
 }
 
 function Install-Program($localFilePath) {
-    Write-Host "9 - Начало установки новой версии: $localFilePath"
+    Write-Log -Message "9 - Начало установки новой версии: $localFilePath"
     try {
         Start-Process -FilePath $localFilePath -ArgumentList "/quiet" -Wait -NoNewWindow
         Write-Output "Процесс установки завершен"
@@ -101,12 +129,12 @@ function Update-Program {
         if ($pcLatestProgram) {
             Uninstall-Program($pcLatestProgram)
         } else {
-            Write-Host "8 - Удалять нечего"
+            Write-Log -Message "8 - Удалять нечего"
         }
         # Установка новой версии программы
         Install-Program($localFilePath)
     } else {
-        Write-Host "9 - Файл $localFilePath не найден. Установка программы пропущена"
+        Write-Log -Message "9 - Файл $localFilePath не найден. Установка программы пропущена"
     }
 }
 

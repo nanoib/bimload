@@ -1,21 +1,21 @@
 ﻿function Save-HttpFile($httpUrl, $httpLatestFile, $localFilePath) {
     $downloadUrl = [Uri]::new([Uri]$httpUrl, $httpLatestFile).AbsoluteUri
 
-    Write-Host "7 - Начало скачивания файла '$downloadUrl'..." -NoNewline
+    Write-Log -Message "7 - Начало скачивания файла '$downloadUrl'..."
 
     try {
         $ProgressPreference = 'SilentlyContinue'  # Отключаем индикатор прогресса
         Invoke-WebRequest -Uri $downloadUrl -OutFile $localFilePath
-        Write-Host " Завершено." -ForegroundColor Green
+        Write-Log -Message " Завершено." -Color ([System.Drawing.Color]::Green)
         
         if (Test-Path -Path $localFilePath) {
-            Write-Host "Файл успешно скачан в $localFilePath"
+            Write-Log -Message "Файл успешно скачан в $localFilePath"
         } else {
-            Write-Host "Не удалось найти скачанный файл в $localFilePath" -ForegroundColor Red
+            Write-Log -Message "Не удалось найти скачанный файл в $localFilePath" -Color ([System.Drawing.Color]::Green)
         }
     }
     catch {
-        Write-Host "Ошибка при скачивании файла: $_" -ForegroundColor Red
+        Write-Log -Message "Ошибка при скачивании файла: $_" -Color ([System.Drawing.Color]::Red)
     }
     finally {
         $ProgressPreference = 'Continue'  # Возвращаем стандартное значение
@@ -47,12 +47,12 @@ function Get-HttpLatestFile{
             Write-Host "Файл на https найден: $latestFile"
             return $latestFile
         } else {
-            Write-Warning "Не найдено файлов на https!"
+            Write-Host "Не найдено файлов на https!"
             return $null
         }
     }
     catch {
-        Write-Error "Ошибка при загрузке или парсинге html: $_"
+        Write-Host "Ошибка при загрузке или парсинге html: $_"
         return $null
     }
     finally {

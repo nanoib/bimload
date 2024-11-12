@@ -9,10 +9,13 @@ $scriptPath = $PSScriptRoot
 
 function Start-BimloadApplication {
     Write-Host "Запуск Bimload..."
+
+    # Создаем синхронизированный хэш для отображения логов
+    $syncHash = [hashtable]::Synchronized(@{})
     
     # Запускаем графический интерфейс
     try {
-        Show-UpdateInterface
+        Show-UpdateInterface -SyncHash $syncHash
     }
     catch {
         $errorMessage = $_.Exception.Message
@@ -20,7 +23,7 @@ function Start-BimloadApplication {
         $errorFileName = $_.InvocationInfo.ScriptName
         $errorOffsetInLine = $_.InvocationInfo.OffsetInLine
 
-        Write-Error "Произошла ошибка:`n$errorMessage`nФайл: $errorFileName`nСтрока: $errorLineNumber`nПозиция: $errorOffsetInLine"
+        Write-Log -Message "Произошла ошибка:`n$errorMessage`nФайл: $errorFileName`nСтрока: $errorLineNumber`nПозиция: $errorOffsetInLine" -Color ([System.Drawing.Color]::Red) -Bold $true
         
         # Вывод полного стека вызовов
         Write-Host "Стек вызовов:"

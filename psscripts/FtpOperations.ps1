@@ -1,29 +1,39 @@
-﻿function Save-FtpFile($ftpUrl, $ftpFolder, $ftpLatestFile, $localFilePath, $username, [SecureString]$password) {
-    # Скачивание файла
-    $downloadFtpPath = "$ftpFolder$ftpLatestFile"
-    $downloadUrl = [Uri]::new([Uri]$ftpUrl, $downloadFtpPath).AbsoluteUri
+﻿function Save-FtpFile {
+    param (
+        [string]$ftpUrl,
+        [string]$ftpFolder,
+        [string]$ftpLatestFile,
+        [string]$localFilePath,
+        [string]$username,
+        [SecureString]$password
+    )
 
-    Write-Output "7 - Начало скачивания файла '$downloadFtpPath'..."
-
+    $uri = "$ftpUrl/$ftpFolder/$ftpLatestFile"
     $webClient = New-Object System.Net.WebClient
     $webClient.Credentials = New-Object System.Net.NetworkCredential($username, $password)
 
-    try {
-        $webClient.DownloadFile($downloadUrl, $localFilePath)
-        
-        if (Test-Path -Path $localFilePath) {
-            Write-Output "Файл успешно скачан в $localFilePath"
-        } else {
-            Write-Error "Не удалось найти скачанный файл в $localFilePath"
-        }
+    Write-Log -Message "Начинаем загрузку файла $uri"
+
+    $downloadTask = $webClient.DownloadFileTaskAsync($uri, $localFilePath)
+
+    while (-not $downloadTask.IsCompleted) {
+        Start-Sleep -Milliseconds 100
+        [System.Windows.Forms.Application]::DoEvents()
     }
-    catch {
-        Write-Error "Ошибка при скачивании файла: $_"
+
+    if ($downloadTask.IsFaulted) {
+        Write-Log -Message "Ошибка при загрузке файла: $($downloadTask.Exception.InnerException.Message)" -Color ([System.Drawing.Color]::Red) -Bold $true
+        return $false
     }
-    finally {
-        $webClient.Dispose()
+
+    if (Test-Path -Path $localFilePath) {
+        Write-Log -Message "Файл успешно скачан в $localFilePath"
+    } else {
+        Write-Log -Message "Не удалось найти скачанный файл в $localFilePath" -Color ([System.Drawing.Color]::Red) -Bold $true
     }
+    return $true
 }
+
 
 function Get-FtpLatestFile($ftpUrl, $ftpFolder, $username, [SecureString]$password) {
     $maxAttempts = 1
@@ -33,7 +43,7 @@ function Get-FtpLatestFile($ftpUrl, $ftpFolder, $username, [SecureString]$passwo
         try {
             # Составляем полный путь к файлу на FTP
             $ftpPath = [Uri]::new([Uri]$ftpUrl, $ftpFolder).AbsoluteUri
-            Write-Host "4 - Подключаемся к FTP: $ftpPath"
+            Write-Log -Message "Подключаемся к FTP: $ftpPath"
             
             # Объект FtpWebRequest
             $ftpRequest = [System.Net.FtpWebRequest]::Create($ftpPath)
@@ -59,20 +69,20 @@ function Get-FtpLatestFile($ftpUrl, $ftpFolder, $username, [SecureString]$passwo
             # Удаляем лишние пробелы и символы новой строки из имени файла
             $ftpLatestFile = $ftpLatestFile.Trim()
     
-            Write-Host "Найдено файлов и папок на FTP: $($filesList.Count)"
-            Write-Host "Файл с последней сборкой: $ftpLatestFile"
+            Write-Log -Message "Найдено файлов и папок на FTP: $($filesList.Count)"
+            Write-Log -Message "Файл с последней сборкой: $ftpLatestFile"
             
             return $ftpLatestFile
         } 
         catch {
             $attempt++
-            Write-Warning "Попытка $attempt из $maxAttempts не удалась. Ошибка: $_"
+            Write-Log -Message "Попытка $attempt из $maxAttempts не удалась. Ошибка: $_"
             if ($attempt -lt $maxAttempts) {
                 Start-Sleep -Seconds 5  # Ждем 5 секунд перед следующей попыткой
             }
         }
     }
     
-    Write-Error "Не удалось получить список файлов с FTP после $maxAttempts попыток."
+    Write-Log -Message "Не удалось получить список файлов с FTP после $maxAttempts попыток." -Color ([System.Drawing.Color]::Red) -Bold $true
     return $null
 }
