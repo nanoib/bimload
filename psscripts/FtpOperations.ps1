@@ -22,14 +22,14 @@
     }
 
     if ($downloadTask.IsFaulted) {
-        Write-Log -Message "Ошибка при загрузке файла: $($downloadTask.Exception.InnerException.Message)" -Color ([System.Drawing.Color]::Red) -Bold $true
+        Write-Log -Message "Ошибка при загрузке файла: $($downloadTask.Exception.InnerException.Message)" -Mode error
         return $false
     }
 
     if (Test-Path -Path $localFilePath) {
         Write-Log -Message "Файл успешно скачан в $localFilePath"
     } else {
-        Write-Log -Message "Не удалось найти скачанный файл в $localFilePath" -Color ([System.Drawing.Color]::Red) -Bold $true
+        Write-Log -Message "Не удалось найти скачанный файл в $localFilePath" -Mode error
     }
     return $true
 }
@@ -83,6 +83,6 @@ function Get-FtpLatestFile($ftpUrl, $ftpFolder, $username, [SecureString]$passwo
         }
     }
     
-    Write-Log -Message "Не удалось получить список файлов с FTP после $maxAttempts попыток." -Color ([System.Drawing.Color]::Red) -Bold $true
+    Write-Log -Message "Не удалось получить список файлов с FTP после $maxAttempts попыток." -Mode error
     return $null
 }

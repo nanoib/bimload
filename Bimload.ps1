@@ -23,10 +23,10 @@ function Start-BimloadApplication {
         $errorFileName = $_.InvocationInfo.ScriptName
         $errorOffsetInLine = $_.InvocationInfo.OffsetInLine
 
-        Write-Log -Message "Произошла ошибка:`n$errorMessage`nФайл: $errorFileName`nСтрока: $errorLineNumber`nПозиция: $errorOffsetInLine" -Color ([System.Drawing.Color]::Red) -Bold $true
+        Write-Log -Message "Произошла ошибка:`n$errorMessage`nФайл: $errorFileName`nСтрока: $errorLineNumber`nПозиция: $errorOffsetInLine" -Mode error
         
         # Вывод полного стека вызовов
-        Write-Host "Стек вызовов:"
+        Write-Log "Стек вызовов:"
         $_.ScriptStackTrace
     }
 }

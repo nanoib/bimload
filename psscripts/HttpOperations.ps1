@@ -6,16 +6,16 @@
     try {
         $ProgressPreference = 'SilentlyContinue'  # Отключаем индикатор прогресса
         Invoke-WebRequest -Uri $downloadUrl -OutFile $localFilePath
-        Write-Log -Message " Завершено." -Color ([System.Drawing.Color]::Green)
+        Write-Log -Message " Завершено." -Mode success
         
         if (Test-Path -Path $localFilePath) {
             Write-Log -Message "Файл успешно скачан в $localFilePath"
         } else {
-            Write-Log -Message "Не удалось найти скачанный файл в $localFilePath" -Color ([System.Drawing.Color]::Green)
+            Write-Log -Message "Не удалось найти скачанный файл в $localFilePath" -Mode success
         }
     }
     catch {
-        Write-Log -Message "Ошибка при скачивании файла: $_" -Color ([System.Drawing.Color]::Red)
+        Write-Log -Message "Ошибка при скачивании файла: $_" -Mode error
     }
     finally {
         $ProgressPreference = 'Continue'  # Возвращаем стандартное значение
@@ -30,7 +30,7 @@ function Get-HttpLatestFile{
     $webClient = $null
     try {
         # Скачиваем html
-        Write-Host "4 - Будем искать файлы на https: $httpUrl"
+        Write-Log "4 - Будем искать файлы на https: $httpUrl"
         $webClient = New-Object System.Net.WebClient
         $htmlContent = $webClient.DownloadString($httpUrl)
 
@@ -44,15 +44,15 @@ function Get-HttpLatestFile{
             # Извлекаем текст из последнего матча
             $latestFile = $lastMatch.Groups[1].Value
 
-            Write-Host "Файл на https найден: $latestFile"
+            Write-Log "Файл на https найден: $latestFile"
             return $latestFile
         } else {
-            Write-Host "Не найдено файлов на https!"
+            Write-Log "Не найдено файлов на https!" -Mode error
             return $null
         }
     }
     catch {
-        Write-Host "Ошибка при загрузке или парсинге html: $_"
+        Write-Log "Ошибка при загрузке или парсинге html: $_" -Mode error
         return $null
     }
     finally {

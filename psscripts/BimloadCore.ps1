@@ -1,29 +1,54 @@
 ﻿function Write-Log {
     param (
         [string]$Message,
-        [System.Drawing.Color]$Color = [System.Drawing.Color]::Black,
-        [bool]$Bold = $false
+        [ValidateSet('info', 'error', 'warning', 'success')]
+        [string]$Mode = 'info'
     )
     
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "[$timestamp] $Message"
+    
+    # Определяем цвет и стиль шрифта в зависимости от режима
+    switch ($Mode) {
+        'info' {
+            $messageColor = [System.Drawing.Color]::Black
+            $messageBold = $false
+        }
+        'error' {
+            $messageColor = [System.Drawing.Color]::Red
+            $messageBold = $true
+        }
+        'warning' {
+            $messageColor = [System.Drawing.Color]::Orange
+            $messageBold = $true
+        }
+        'success' {
+            $messageColor = [System.Drawing.Color]::Green
+            $messageBold = $true
+        }
+    }
     
     # Отправляем сообщение в GUI
     $syncHash.LogTextBox.Invoke([Action]{
+        # Добавляем timestamp серым цветом
         $syncHash.LogTextBox.SelectionStart = $syncHash.LogTextBox.TextLength
         $syncHash.LogTextBox.SelectionLength = 0
-        $syncHash.LogTextBox.SelectionColor = $Color
-        if ($Bold) {
+        $syncHash.LogTextBox.SelectionColor = [System.Drawing.Color]::Gray
+        $syncHash.LogTextBox.SelectionFont = New-Object System.Drawing.Font($syncHash.LogTextBox.Font, [System.Drawing.FontStyle]::Regular)
+        $syncHash.LogTextBox.AppendText("[$timestamp] ")
+
+        # Добавляем основное сообщение
+        $syncHash.LogTextBox.SelectionStart = $syncHash.LogTextBox.TextLength
+        $syncHash.LogTextBox.SelectionLength = 0
+        $syncHash.LogTextBox.SelectionColor = $messageColor
+        if ($messageBold) {
             $syncHash.LogTextBox.SelectionFont = New-Object System.Drawing.Font($syncHash.LogTextBox.Font, [System.Drawing.FontStyle]::Bold)
         } else {
-            $syncHash.LogTextBox.SelectionFont = $syncHash.LogTextBox.Font
+            $syncHash.LogTextBox.SelectionFont = New-Object System.Drawing.Font($syncHash.LogTextBox.Font, [System.Drawing.FontStyle]::Regular)
         }
-        $syncHash.LogTextBox.AppendText($logMessage + "`n")
+        $syncHash.LogTextBox.AppendText("$Message`n")
+
         $syncHash.LogTextBox.ScrollToCaret()
-    })
-    
-    # Также выводим в консоль
-    Write-Host $logMessage
+    }) | Out-Null  # Подавляем любой вывод от метода Invoke
 }
 
 function Get-Credentials($fileFolder, $fileName) {
@@ -56,17 +81,17 @@ function Get-Credentials($fileFolder, $fileName) {
 
 function Get-PcLatestProgram($productName) {
     # Получаем все установленные версии программы
-    Write-Host "2 - Получаем список программ"
+    Write-Log "2 - Получаем список программ"
     $programs = @(Get-WmiObject -Class Win32_Product |
     Where-Object { $_.Name -like "*$productName*" } |
     Sort-Object { [version]$_.Version } -Descending)
     if ($programs.Count -eq 0) {
-        Write-Host "Не найдено ничо по запросу '$productName'"
+        Write-Log "Не найдено ничо по запросу '$productName'" -Mode error
         $pcLatestProgram = $false
     } else {
         # Выводим найденные версии
-        Write-Host "Найденные программы по запросу '$productName':"
-        $programs | ForEach-Object { Write-Host "$($_.Name), Версия: $($_.Version)" }
+        Write-Log "Найденные программы по запросу '$productName':"
+        $programs | ForEach-Object { Write-Log "$($_.Name), Версия: $($_.Version)" }
         # Определяем старшую версию
         $pcLatestProgram = $programs[0]
 
@@ -77,7 +102,7 @@ function Get-PcLatestProgram($productName) {
 function Get-PcLatestVersion($pcLatestProgram, $productVersionPattern) {
     # Извлекаем версию установленной программы
     $pcLatestVersion = $pcLatestProgram.Version -replace $productVersionPattern, '$1'
-    Write-Host "3 - Последняя установленная сборка определена: $pcLatestVersion"
+    Write-Log -Message "3 - Последняя установленная сборка определена: $pcLatestVersion"
     return $pcLatestVersion
 }
 
@@ -104,7 +129,7 @@ function Uninstall-Program($pcLatestProgram) {
     Write-Log -Message "8 - Удаляется программа $($pcLatestProgram.Name), Версия: $($pcLatestProgram.Version)"
     $result = $pcLatestProgram.Uninstall()
     if ($result.ReturnValue -ne 0) {
-        Write-Error "Ошибка при удалении программы. Код ошибки: $($result.ReturnValue)"
+        Write-Log "Ошибка при удалении программы. Код ошибки: $($result.ReturnValue)" -Mode error
         exit 1
     }
 }
@@ -113,9 +138,9 @@ function Install-Program($localFilePath) {
     Write-Log -Message "9 - Начало установки новой версии: $localFilePath"
     try {
         Start-Process -FilePath $localFilePath -ArgumentList "/quiet" -Wait -NoNewWindow
-        Write-Output "Процесс установки завершен"
+        Write-Log "Процесс установки завершен"
     } catch {
-        Write-Error "Ошибка при установке новой версии программы: $_"
+        Write-Log "Ошибка при установке новой версии программы: $_" -Mode error
     }
 }
 
@@ -134,7 +159,7 @@ function Update-Program {
         # Установка новой версии программы
         Install-Program($localFilePath)
     } else {
-        Write-Log -Message "9 - Файл $localFilePath не найден. Установка программы пропущена"
+        Write-Log -Message "9 - Файл $localFilePath не найден. Установка программы пропущена" -Mode error
     }
 }
 
