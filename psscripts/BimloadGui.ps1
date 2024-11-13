@@ -13,8 +13,9 @@ function Show-UpdateInterface {
     $form = New-Object System.Windows.Forms.Form
     $form.Text = 'Bimload — Developer BIM Update Manager'
     $form.StartPosition = 'CenterScreen'
-    $form.FormBorderStyle = 'FixedSingle'
+    $form.FormBorderStyle = 'Sizable'
     $form.MaximizeBox = $false
+    $form.MinimizeBox = $true
 
     # Определяем ширину столбцов
     $checkBoxWidth = 30
@@ -111,12 +112,15 @@ function Show-UpdateInterface {
 
     # Создаем RichTextBox для логов
     $logTextBoxOffset = 10
-    $logTextBoxHeigth = 75
+    $logTextBoxHeigth = 120
     $logTextBoxWidth = $gridWidth
     $logTextBox = New-Object System.Windows.Forms.RichTextBox
     $logTextBox.Location = New-Object System.Drawing.Point(10, ($toggleAllButton.Bottom+$logTextBoxOffset))
     $logTextBox.Size = New-Object System.Drawing.Size($logTextBoxWidth, $logTextBoxHeigth)
     $logTextBox.ReadOnly = $true
+    $logTextBox.HideSelection = $true
+    $logTextBox.TabStop = $false
+    $logTextBox.Cursor = [System.Windows.Forms.Cursors]::Arrow
     $form.Controls.Add($logTextBox)
 
     # Присваиваем RichTextBox синхронизированному хэшу
@@ -131,10 +135,23 @@ function Show-UpdateInterface {
     $form.Controls.Add($statusLabel)
 
     # Обновляем размер формы
-    $formNeathPadding = 30
+    $formNeathPadding = 0
     $formHeigth = $statusLabel.Bottom + $formNeathPadding
     $form.Size = New-Object System.Drawing.Size($formWidth, $formHeigth)
+    $form.MinimumSize = New-Object System.Drawing.Size($formWidth, $formHeigth)
+    $form.MaximumSize = New-Object System.Drawing.Size($formWidth, 1500)    
+    $form.ClientSize = New-Object System.Drawing.Size($formWidth, $formHeigth)
 
+    # Добавляем обработчик события изменения размера формы
+    $form.Add_SizeChanged({
+        # Обновляем положение и размеры элементов
+        $dataGridView.Width = $gridWidth
+        $logTextBox.Width = $gridWidth
+        $statusLabel.Width = $gridWidth
+        
+        $statusLabel.Top = $form.ClientSize.Height - $statusLabel.Height - $formNeathPadding
+        $logTextBox.Height = $statusLabel.Top - $logTextBox.Top - $statusLabelOffset
+    })
 
     # Заполняем DataGridView данными
     $fileFolder = Join-Path -Path $PSScriptRoot -ChildPath "..\creds"
