@@ -40,6 +40,20 @@ function Show-UpdateInterface {
     $splitContainer.Dock = [System.Windows.Forms.DockStyle]::Fill
     $splitContainer.Orientation = [System.Windows.Forms.Orientation]::Horizontal
     $splitContainer.FixedPanel = [System.Windows.Forms.FixedPanel]::Panel2
+    $splitContainer.IsSplitterFixed = $false
+    $splitContainer.BorderStyle = [System.Windows.Forms.BorderStyle]::None
+    $splitContainer.SplitterWidth = 20
+    
+    # Create a custom panel to draw the line
+    $splitterLine = New-Object System.Windows.Forms.Panel
+    $splitterLine.Dock = [System.Windows.Forms.DockStyle]::None
+    $splitterLine.Height = 1
+    $splitterLine.BackColor = [System.Drawing.Color]::Gray
+    $splitterLine.Left = 10
+    $splitterLine.Width = $gridWidth
+    $splitContainer.Panel2.Controls.Add($splitterLine)
+    
+
     $form.Controls.Add($splitContainer)
 
     # Создаем DataGridView
@@ -50,29 +64,20 @@ function Show-UpdateInterface {
     $dataGridView.RowHeadersVisible = $false
     $dataGridView.SelectionMode = 'FullRowSelect'
     $dataGridView.MultiSelect = $false
-    $dataGridView.BackgroundColor = [System.Drawing.Color]::White
+    $dataGridView.BackgroundColor = [System.Drawing.SystemColors]::Control
     $dataGridView.AllowUserToResizeRows = $false
-    
+    $dataGridView.BorderStyle = [System.Windows.Forms.BorderStyle]::None  # Добавьте эту строку
     $splitContainer.Panel1.Controls.Add($dataGridView)
-    # Устанавливаем отступ слева на 10 пикселей
-    $dataGridView.Location = New-Object System.Drawing.Point(10, 0)
-    $dataGridView.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right -bor [System.Windows.Forms.AnchorStyles]::Bottom
 
     # Обновляем размер DataGridView
     $dataGridView.Width = $splitContainer.Panel1.Width - 20
-    $dataGridView.Height = $splitContainer.Panel1.Height - 10
-
-    $splitter = New-Object System.Windows.Forms.Splitter
-    $splitter.Dock = [System.Windows.Forms.DockStyle]::Top
-    $splitter.Height = 5
-    $splitContainer.Panel2.Controls.Add($splitter)
+    $dataGridView.Height = $splitContainer.Panel1.Height - 15
+    $splitContainer.Panel1.Padding = New-Object System.Windows.Forms.Padding(10, 10, 10, 0)
 
     # Добавляем столбцы
     $checkBoxColumn = New-Object System.Windows.Forms.DataGridViewCheckBoxColumn
     $checkBoxColumn.HeaderText = ""
-
     $dataGridView.Columns.Add($checkBoxColumn)
-
     $dataGridView.Columns.Add("FileConfig", "Файл конфигурации")
     $dataGridView.Columns.Add("ProductName", "Название продукта")
 
@@ -108,7 +113,7 @@ function Show-UpdateInterface {
     
     # Добавляем обработчик события двойного клика
     $dataGridView.Add_CellMouseDoubleClick({
-        param($sender, $e)
+        param($mouseEventArgs, $e)
         
         # Проверяем, что клик был по ячейке (а не по заголовку)
         if ($e.RowIndex -ge 0) {
@@ -194,7 +199,7 @@ function Show-UpdateInterface {
 
     & $updateControlsPosition
     # Обновляем размер формы
-    $formHeigth = 500
+    $formHeigth = 450
     # Устанавливаем начальное положение сплиттера
     $splitContainer.SplitterDistance = 0
 
