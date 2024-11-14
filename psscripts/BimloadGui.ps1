@@ -27,7 +27,7 @@ function Show-UpdateInterface {
     $statusWidth = 140
 
     # Вычисляем общую ширину таблицы
-    $gridPadding = 20
+    $gridPadding = 30
     $gridWidth = $checkBoxWidth + $fileConfigWidth + $productNameWidth + $methodWidth + 
     $currentVersionWidth + $newVersionWidth + $statusWidth + $gridPadding
 
@@ -35,9 +35,16 @@ function Show-UpdateInterface {
     $formPadding = 35
     $formWidth = $gridWidth + $formPadding
 
+    # Создаем SplitContainer
+    $splitContainer = New-Object System.Windows.Forms.SplitContainer
+    $splitContainer.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $splitContainer.Orientation = [System.Windows.Forms.Orientation]::Horizontal
+    $splitContainer.FixedPanel = [System.Windows.Forms.FixedPanel]::Panel2
+    $form.Controls.Add($splitContainer)
+
     # Создаем DataGridView
     $dataGridView = New-Object System.Windows.Forms.DataGridView
-    $dataGridView.Location = New-Object System.Drawing.Point(10,10)
+    $dataGridView.Dock = [System.Windows.Forms.DockStyle]::Fill
     $dataGridView.AutoGenerateColumns = $false
     $dataGridView.AllowUserToAddRows = $false
     $dataGridView.RowHeadersVisible = $false
@@ -45,11 +52,20 @@ function Show-UpdateInterface {
     $dataGridView.MultiSelect = $false
     $dataGridView.BackgroundColor = [System.Drawing.Color]::White
     $dataGridView.AllowUserToResizeRows = $false
-    $form.Controls.Add($dataGridView)
+    
+    $splitContainer.Panel1.Controls.Add($dataGridView)
+    # Устанавливаем отступ слева на 10 пикселей
+    $dataGridView.Location = New-Object System.Drawing.Point(10, 0)
+    $dataGridView.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right -bor [System.Windows.Forms.AnchorStyles]::Bottom
 
     # Обновляем размер DataGridView
-    $gridHeight = 250
-    $dataGridView.Size = New-Object System.Drawing.Size($gridWidth, $gridHeight)
+    $dataGridView.Width = $splitContainer.Panel1.Width - 20
+    $dataGridView.Height = $splitContainer.Panel1.Height - 10
+
+    $splitter = New-Object System.Windows.Forms.Splitter
+    $splitter.Dock = [System.Windows.Forms.DockStyle]::Top
+    $splitter.Height = 5
+    $splitContainer.Panel2.Controls.Add($splitter)
 
     # Добавляем столбцы
     $checkBoxColumn = New-Object System.Windows.Forms.DataGridViewCheckBoxColumn
@@ -77,6 +93,11 @@ function Show-UpdateInterface {
     $dataGridView.Columns["CurrentVersion"].Width = $currentVersionWidth
     $dataGridView.Columns["NewVersion"].Width = $newVersionWidth
     $dataGridView.Columns["Status"].Width = $statusWidth
+
+    # Создаем Panel для нижней части окна
+    $bottomPanel = New-Object System.Windows.Forms.Panel
+    $bottomPanel.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $splitContainer.Panel2.Controls.Add($bottomPanel)
 
     # Отключаем редактирование для всех столбцов, кроме чекбоксов и метода
     foreach ($column in $dataGridView.Columns) {
@@ -112,12 +133,12 @@ function Show-UpdateInterface {
     $toggleAllButton = New-Object System.Windows.Forms.Button
     $toggleAllButton.Location = New-Object System.Drawing.Point(
         10,
-        ($dataGridView.Bottom+$buttonsOffset)
+        ($bottomPanel.Top+$buttonsOffset)
         )
     $toggleAllButton.Text = 'Выбрать все'
     $toggleAllButton.AutoSize = $true
     $toggleAllButton.Padding = New-Object System.Windows.Forms.Padding(5, 2, 5, 2)
-    $form.Controls.Add($toggleAllButton)
+    $bottomPanel.Controls.Add($toggleAllButton)
 
     # Создаем кнопку для запуска обновления выбранных программ
     $updateButton = New-Object System.Windows.Forms.Button
@@ -128,50 +149,66 @@ function Show-UpdateInterface {
     $updateButton.Text = 'Обновить'
     $updateButton.AutoSize = $true
     $updateButton.Padding = New-Object System.Windows.Forms.Padding(5, 2, 5, 2)
-    $form.Controls.Add($updateButton)
+    $bottomPanel.Controls.Add($updateButton)
 
 
     # Создаем RichTextBox для логов
     $logTextBoxOffset = 10
-    $logTextBoxHeigth = 120
-    $logTextBoxWidth = $gridWidth
+    $logTextBoxWidth = $bottomPanel.Width - 20
     $logTextBox = New-Object System.Windows.Forms.RichTextBox
     $logTextBox.Location = New-Object System.Drawing.Point(10, ($toggleAllButton.Bottom+$logTextBoxOffset))
-    $logTextBox.Size = New-Object System.Drawing.Size($logTextBoxWidth, $logTextBoxHeigth)
+    $logTextBox.Width = $logTextBoxWidth
+    $logTextBox.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right -bor [System.Windows.Forms.AnchorStyles]::Bottom
     $logTextBox.ReadOnly = $true
     $logTextBox.HideSelection = $true
     $logTextBox.TabStop = $false
     $logTextBox.Cursor = [System.Windows.Forms.Cursors]::Arrow
-    $form.Controls.Add($logTextBox)
+    $bottomPanel.Controls.Add($logTextBox)
 
     # Присваиваем RichTextBox синхронизированному хэшу
     $SyncHash.LogTextBox = $logTextBox
 
     # Создаем метку для отображения статуса операции
-    $statusLabelOffset = 10
+    $statusLabelOffset1 = 0
+    $statusLabelOffset2 = 10
     $statusLabel = New-Object System.Windows.Forms.Label
-    $statusLabel.Location = New-Object System.Drawing.Point(10,($logTextBox.Bottom+$statusLabelOffset))
-    $statusLabel.Size = New-Object System.Drawing.Size($gridWidth,30)  # Увеличиваем ширину метки
+    $statusLabel.AutoSize = $false
+    $statusLabel.Width = $bottomPanel.Width - 20
+    $statusLabel.Anchor = [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Right -bor [System.Windows.Forms.AnchorStyles]::Bottom
     $statusLabel.Text = 'Готов к обновлению'
-    $form.Controls.Add($statusLabel)
+    $bottomPanel.Controls.Add($statusLabel)
 
+    # Функция для обновления положения и размера элементов
+    $updateControlsPosition = {
+        $statusLabel.Location = New-Object System.Drawing.Point(10, ($bottomPanel.Height - $statusLabel.Height - $statusLabelOffset1))
+        $logTextBox.Height = $bottomPanel.Height - $logTextBox.Top - $statusLabel.Height - $statusLabelOffset2
+    }
+
+    # Добавляем обработчик события изменения размера для bottomPanel
+    $bottomPanel.Add_Resize($updateControlsPosition)
+
+    # Добавляем обработчик события изменения положения сплиттера
+    $splitContainer.Add_SplitterMoved({
+        & $updateControlsPosition
+    })
+
+    & $updateControlsPosition
     # Обновляем размер формы
-    $formNeathPadding = 0
-    $formHeigth = $statusLabel.Bottom + $formNeathPadding
+    $formHeigth = 500
+    # Устанавливаем начальное положение сплиттера
+    $splitContainer.SplitterDistance = 0
+
+
+
     $form.Size = New-Object System.Drawing.Size($formWidth, $formHeigth)
     $form.MinimumSize = New-Object System.Drawing.Size($formWidth, $formHeigth)
     $form.MaximumSize = New-Object System.Drawing.Size($formWidth, 1500)    
     $form.ClientSize = New-Object System.Drawing.Size($formWidth, $formHeigth)
 
-    # Добавляем обработчик события изменения размера формы
+    # Обновляем обработчик события изменения размера формы
     $form.Add_SizeChanged({
         # Обновляем положение и размеры элементов
-        $dataGridView.Width = $gridWidth
-        $logTextBox.Width = $gridWidth
-        $statusLabel.Width = $gridWidth
-        
-        $statusLabel.Top = $form.ClientSize.Height - $statusLabel.Height - $formNeathPadding
-        $logTextBox.Height = $statusLabel.Top - $logTextBox.Top - $statusLabelOffset
+        & $updateControlsPosition
     })
 
     # Заполняем DataGridView данными
