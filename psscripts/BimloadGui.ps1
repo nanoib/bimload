@@ -85,6 +85,27 @@ function Show-UpdateInterface {
         }
     }
     
+    # Добавляем обработчик события двойного клика
+    $dataGridView.Add_CellMouseDoubleClick({
+        param($sender, $e)
+        
+        # Проверяем, что клик был по ячейке (а не по заголовку)
+        if ($e.RowIndex -ge 0) {
+            # Получаем текущую строку
+            $currentRow = $dataGridView.Rows[$e.RowIndex]
+            
+            # Проверяем, что клик не был по столбцу метода
+            if ($e.ColumnIndex -ne $methodColumn.Index) {
+                # Инвертируем значение чекбокса
+                $currentRow.Cells[0].Value = !$currentRow.Cells[0].Value
+                
+                # Обновляем отображение
+                $dataGridView.RefreshEdit()
+                $dataGridView.NotifyCurrentCellDirty($true)
+            }
+        }
+    })
+
     # Создаем кнопку для выбора/отмены всех элементов списка
     $buttonsOffset = 10
     $buttonRightPadding = 30
