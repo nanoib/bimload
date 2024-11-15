@@ -10,8 +10,14 @@ $scriptPath = $PSScriptRoot
 function Start-BimloadApplication {
     Write-Host "Запуск Bimload..."
 
-    # Создаем синхронизированный хэш для отображения логов
+    # Создаем синхронизированный хэш для отображения логов и состояния
     $syncHash = [hashtable]::Synchronized(@{})
+    $syncHash.Host = $Host
+    $syncHash.Runspace = [runspacefactory]::CreateRunspace()
+    $syncHash.Runspace.ApartmentState = "STA"
+    $syncHash.Runspace.ThreadOptions = "ReuseThread"
+    $syncHash.Runspace.Open()
+    $syncHash.Runspace.SessionStateProxy.SetVariable("syncHash", $syncHash)
     
     # Запускаем графический интерфейс
     try {

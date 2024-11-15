@@ -193,7 +193,8 @@ function Update-Bim {
     param (
         $fileFolder,
         $credFileName,
-        $method
+        $method,
+        $syncHash
     )
 
     $credentials = Get-Credentials -fileFolder $fileFolder -fileName $credFileName
@@ -203,7 +204,8 @@ function Update-Bim {
     if ($method -eq "http") {
         $latestFile = Get-HttpLatestFile `
             -httpUrl $credentials.httpUrl `
-            -httpPattern $credentials.httpPattern
+            -httpPattern $credentials.httpPattern `
+            -syncHash $syncHash
     } else {
         if ([string]::IsNullOrWhiteSpace($credentials.ftpUrl) -or [string]::IsNullOrWhiteSpace($credentials.ftpFolder)) {
             return @{
@@ -216,7 +218,8 @@ function Update-Bim {
             -ftpUrl $credentials.ftpUrl `
             -ftpFolder $credentials.ftpFolder `
             -username $credentials.username `
-            -password $credentials.password
+            -password $credentials.password `
+            -syncHash $syncHash
     }
 
     if ($null -eq $latestFile) {
@@ -238,7 +241,8 @@ function Update-Bim {
                 Save-HttpFile `
                     -httpUrl $credentials.httpUrl `
                     -httpLatestFile $latestFile `
-                    -localFilePath $localFilePath
+                    -localFilePath $localFilePath `
+                    -syncHash $syncHash
             } else {
                 Save-FtpFile `
                     -ftpUrl $credentials.ftpUrl `
@@ -246,7 +250,8 @@ function Update-Bim {
                     -ftpLatestFile $latestFile `
                     -localFilePath $localFilePath `
                     -username $credentials.username `
-                    -password $credentials.password
+                    -password $credentials.password `
+                    -syncHash $syncHash
             }
         }
         Update-Program -localFilePath $localFilePath -pcLatestProgram $pcLatestProgram

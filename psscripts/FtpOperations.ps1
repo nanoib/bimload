@@ -5,46 +5,64 @@
         [string]$ftpLatestFile,
         [string]$localFilePath,
         [string]$username,
-        [SecureString]$password
+        [SecureString]$password,
+        $syncHash
     )
 
     $uri = "$ftpUrl/$ftpFolder/$ftpLatestFile"
-    $webClient = New-Object System.Net.WebClient
-    $webClient.Credentials = New-Object System.Net.NetworkCredential($username, $password)
-
     Write-Log -Message "Начинаем загрузку файла $uri"
 
-    $downloadTask = $webClient.DownloadFileTaskAsync($uri, $localFilePath)
+    $job = Start-Job -ScriptBlock {
+        param([string]$uri, [string]$localFilePath, [string]$username, [SecureString]$password)
+        
+        try {
+            $webClient = New-Object System.Net.WebClient
+            $webClient.Credentials = New-Object System.Net.NetworkCredential($username, $password)
+            $webClient.DownloadFile($uri, $localFilePath)
+            return @{ Success = $true; Message = "Файл успешно скачан в $localFilePath" }
+        }
+        catch {
+            return @{ Success = $false; Message = "Ошибка при загрузке файла: $_" }
+        }
+        finally {
+            if ($webClient) {
+                $webClient.Dispose()
+            }
+        }
+    } -ArgumentList $uri, $localFilePath, $username, $password
 
-    while (-not $downloadTask.IsCompleted) {
+    while ($job.State -eq 'Running') {
         Start-Sleep -Milliseconds 100
         [System.Windows.Forms.Application]::DoEvents()
     }
 
-    if ($downloadTask.IsFaulted) {
-        Write-Log -Message "Ошибка при загрузке файла: $($downloadTask.Exception.InnerException.Message)" -Mode error
+    $result = Receive-Job -Job $job
+    Remove-Job -Job $job
+
+    if ($result.Success) {
+        Write-Log -Message $result.Message
+        return $true
+    } else {
+        Write-Log -Message $result.Message -Mode error
         return $false
     }
-
-    if (Test-Path -Path $localFilePath) {
-        Write-Log -Message "Файл успешно скачан в $localFilePath"
-    } else {
-        Write-Log -Message "Не удалось найти скачанный файл в $localFilePath" -Mode error
-    }
-    return $true
 }
 
+function Get-FtpLatestFile {
+    param (
+        $ftpUrl,
+        $ftpFolder,
+        $username,
+        [SecureString]$password,
+        $syncHash
+    )
 
-function Get-FtpLatestFile($ftpUrl, $ftpFolder, $username, [SecureString]$password) {
-    $maxAttempts = 1
-    $attempt = 0
     
-    while ($attempt -lt $maxAttempts) {
+    $job = Start-Job -ScriptBlock {
+        param($ftpUrl, $ftpFolder, $username, [SecureString]$password)
+        
         try {
-            # Составляем полный путь к файлу на FTP
             $ftpPath = [Uri]::new([Uri]$ftpUrl, $ftpFolder).AbsoluteUri
-            Write-Log -Message "Подключаемся к FTP: $ftpPath"
-            
             # Объект FtpWebRequest
             $ftpRequest = [System.Net.FtpWebRequest]::Create($ftpPath)
             $ftpRequest.Method = [System.Net.WebRequestMethods+Ftp]::ListDirectory
@@ -57,32 +75,39 @@ function Get-FtpLatestFile($ftpUrl, $ftpFolder, $username, [SecureString]$passwo
 
             # Чтение списка файлов
             $filesList = $reader.ReadToEnd().Split("`n") | Where-Object { $_ -ne "" }
-    
+
             # Закрытие потоков
             $reader.Close()
             $responseStream.Close()
             $ftpResponse.Close()
-    
-            # Сортируем файлы по алфавиту и выбираем последний
+
+            # Сортируем файлы по алфавиту и выбираем последний    
             $ftpLatestFile = $filesList | Sort-Object | Select-Object -Last 1
-    
+
             # Удаляем лишние пробелы и символы новой строки из имени файла
             $ftpLatestFile = $ftpLatestFile.Trim()
     
-            Write-Log -Message "Найдено файлов и папок на FTP: $($filesList.Count)"
-            Write-Log -Message "Файл с последней сборкой: $ftpLatestFile"
-            
-            return $ftpLatestFile
-        } 
-        catch {
-            $attempt++
-            Write-Log -Message "Попытка $attempt из $maxAttempts не удалась. Ошибка: $_"
-            if ($attempt -lt $maxAttempts) {
-                Start-Sleep -Seconds 5  # Ждем 5 секунд перед следующей попыткой
-            }
+            return @{ Success = $true; LatestFile = $ftpLatestFile; FilesCount = $filesList.Count }
         }
+        catch {
+            return @{ Success = $false; Message = "Ошибка при получении списка файлов с FTP: $_" }
+        }
+    } -ArgumentList $ftpUrl, $ftpFolder, $username, $password
+
+    while ($job.State -eq 'Running') {
+        Start-Sleep -Milliseconds 100
+        [System.Windows.Forms.Application]::DoEvents()
     }
-    
-    Write-Log -Message "Не удалось получить список файлов с FTP после $maxAttempts попыток." -Mode error
-    return $null
+
+    $result = Receive-Job -Job $job
+    Remove-Job -Job $job
+
+    if ($result.Success) {
+        Write-Log -Message "Найдено файлов и папок на FTP: $($result.FilesCount)"
+        Write-Log -Message "Файл с последней сборкой: $($result.LatestFile)"
+        return $result.LatestFile
+    } else {
+        Write-Log -Message $result.Message -Mode error
+        return $null
+    }
 }

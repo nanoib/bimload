@@ -302,7 +302,7 @@ function Show-UpdateInterface {
                 $row.Cells["Status"].Value = "Обновляется..."
                 $dataGridView.Refresh()
     
-                $result = Update-Bim -fileFolder $fileFolder -credFileName $credFileName -method $method.ToLower()
+                $result = Update-Bim -fileFolder $fileFolder -credFileName $credFileName -method $method.ToLower() -syncHash $syncHash
     
                 $row.Cells["CurrentVersion"].Value = $result.OldVersion
                 $row.Cells["NewVersion"].Value = $result.NewVersion
