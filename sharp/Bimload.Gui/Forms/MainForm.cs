@@ -11,12 +11,18 @@ namespace Bimload.Gui.Forms;
 
 public partial class MainForm : Form
 {
+    // Fixed size constants
+    private const int DataGridViewHeight = 220; // Reduced by 40% from 300px
+    private const int ButtonsPanelHeight = 45;
+    private const int StatusLabelHeight = 28;
+    private const int SpacingBetweenElements = 25;
+    
     private DataGridView _dataGridView = null!;
     private RichTextBox _logTextBox = null!;
     private Button _toggleAllButton = null!;
     private Button _updateButton = null!;
     private Label _statusLabel = null!;
-    private SplitContainer _splitContainer = null!;
+    private Panel _buttonsPanel = null!;
 
     private readonly ConfigurationLoader _configurationLoader;
     private readonly StateManager _stateManager;
@@ -25,32 +31,41 @@ public partial class MainForm : Form
 
     public MainForm()
     {
-        InitializeComponent();
-
-        // Initialize services
-        var parser = new CredentialsParser();
-        _configurationLoader = new ConfigurationLoader(parser);
-
-        var projectRoot = FindProjectRoot();
-        var credsFolder = Path.Combine(projectRoot, "creds");
-        var stateFile = Path.Combine(projectRoot, "update_info.json");
-        _stateManager = new StateManager(stateFile);
-
-        // Initialize update service with real implementations
-        var wmiQueryWrapper = new WmiQueryWrapper();
-        var versionService = new VersionService();
-        var httpClient = new System.Net.Http.HttpClient
+        try
         {
-            Timeout = TimeSpan.FromSeconds(30)  // 30 seconds timeout
-        };
-        var httpClientWrapper = new HttpClientWrapper(httpClient);
-        var programInstaller = new ProgramInstaller();
-        _logger = new RichTextBoxLogger(_logTextBox);
-        // Pass logger to WmiService for debugging
-        var wmiService = new WmiService(wmiQueryWrapper, _logger);
-        _updateService = new UpdateService(wmiService, versionService, httpClientWrapper, programInstaller, _logger);
+            InitializeComponent();
 
-        LoadConfigurations();
+            // Initialize services
+            var parser = new CredentialsParser();
+            _configurationLoader = new ConfigurationLoader(parser);
+
+            var projectRoot = FindProjectRoot();
+            var credsFolder = Path.Combine(projectRoot, "creds");
+            var stateFile = Path.Combine(projectRoot, "update_info.json");
+            _stateManager = new StateManager(stateFile);
+
+            // Initialize update service with real implementations
+            var wmiQueryWrapper = new WmiQueryWrapper();
+            var versionService = new VersionService();
+            var httpClient = new System.Net.Http.HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(30)  // 30 seconds timeout
+            };
+            var httpClientWrapper = new HttpClientWrapper(httpClient);
+            var programInstaller = new ProgramInstaller();
+            _logger = new RichTextBoxLogger(_logTextBox);
+            // Pass logger to WmiService for debugging
+            var wmiService = new WmiService(wmiQueryWrapper, _logger);
+            _updateService = new UpdateService(wmiService, versionService, httpClientWrapper, programInstaller, _logger);
+
+            LoadConfigurations();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Ошибка при инициализации формы: {ex.Message}\n\n{ex.StackTrace}", 
+                "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            throw;
+        }
     }
 
     private void InitializeComponent()
@@ -61,6 +76,9 @@ public partial class MainForm : Form
         FormBorderStyle = FormBorderStyle.Sizable;
         MaximizeBox = false;
         MinimizeBox = true;
+        WindowState = FormWindowState.Normal;
+        ShowInTaskbar = true;
+        Visible = true;
 
         // Column widths
         var checkBoxWidth = 30;
@@ -77,27 +95,60 @@ public partial class MainForm : Form
         var formWidth = gridWidth + formPadding;
         var formHeight = 450;
 
-        Size = new Size(formWidth, formHeight);
-        MinimumSize = new Size(formWidth, formHeight);
-        MaximumSize = new Size(formWidth, 1500);
+        // Calculate minimum form height:
+        // DataGridView: 300px
+        // Buttons panel: 45px + 5px (top padding) + 5px (bottom padding) = 55px
+        // Status label: 28px
+        // Form padding: ~35px
+        var minFormHeight = DataGridViewHeight + ButtonsPanelHeight + 5 + 5 + StatusLabelHeight + formPadding;
+        
+        // Ensure initial form height is at least the minimum
+        if (formHeight < minFormHeight)
+        {
+            formHeight = minFormHeight;
+        }
 
-        // Create SplitContainer for table and logs
-        _splitContainer = new SplitContainer
+        Size = new Size(formWidth, formHeight);
+        MinimumSize = new Size(formWidth, minFormHeight);
+        MaximumSize = new Size(formWidth, 1500);
+        Padding = new Padding(10, 10, 10, 0); // Padding for top elements
+
+        // Create status label at the bottom - MUST be added FIRST
+        _statusLabel = new Label
+        {
+            Text = "Готов к обновлению",
+            Dock = DockStyle.Bottom,
+            Height = StatusLabelHeight,
+            BorderStyle = BorderStyle.None,
+            BackColor = SystemColors.Control,
+            Padding = new Padding(5, 5, 5, 5),
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+        Controls.Add(_statusLabel);
+
+        // Create panel for log - MUST be added SECOND
+        // Spacing from buttons is handled by buttons panel bottom padding
+        var logPanel = new Panel
         {
             Dock = DockStyle.Fill,
-            Orientation = Orientation.Horizontal,
-            FixedPanel = FixedPanel.None,
-            IsSplitterFixed = false,
-            BorderStyle = BorderStyle.None,
-            SplitterWidth = 8,
-            SplitterDistance = 300  // Initial split position
+            Padding = new Padding(0, 0, 0, 0)
         };
-        Controls.Add(_splitContainer);
+        Controls.Add(logPanel);
 
-        // Create DataGridView in top panel of split container
+        // Create buttons panel - MUST be added THIRD (before DataGridView)
+        _buttonsPanel = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = ButtonsPanelHeight + 5 + 5, // 45px buttons + 5px top spacing + 5px bottom spacing
+            Padding = new Padding(0, 5, 0, 5) // 5px spacing from DataGridView above and log panel below
+        };
+        Controls.Add(_buttonsPanel);
+
+        // Create DataGridView - MUST be added LAST (after buttons)
         _dataGridView = new DataGridView
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
+            Height = DataGridViewHeight,
             AutoGenerateColumns = false,
             AllowUserToAddRows = false,
             RowHeadersVisible = false,
@@ -105,20 +156,10 @@ public partial class MainForm : Form
             MultiSelect = false,
             BackgroundColor = SystemColors.Control,
             AllowUserToResizeRows = false,
-            BorderStyle = BorderStyle.None
+            BorderStyle = BorderStyle.None,
+            ScrollBars = ScrollBars.Vertical
         };
-
-        _splitContainer.Panel1.Padding = new Padding(10, 10, 10, 0);  // No bottom padding
-        _splitContainer.Panel1.Controls.Add(_dataGridView);
-
-        // Create buttons panel under DataGridView
-        var buttonsPanel = new Panel
-        {
-            Dock = DockStyle.Bottom,
-            Height = 45,
-            Padding = new Padding(10, 5, 10, 5)
-        };
-        _splitContainer.Panel1.Controls.Add(buttonsPanel);
+        Controls.Add(_dataGridView);
 
         // Create buttons in buttons panel
         _toggleAllButton = new Button
@@ -129,7 +170,7 @@ public partial class MainForm : Form
             Padding = new Padding(5, 2, 5, 2)
         };
         _toggleAllButton.Click += ToggleAllButton_Click;
-        buttonsPanel.Controls.Add(_toggleAllButton);
+        _buttonsPanel.Controls.Add(_toggleAllButton);
 
         _updateButton = new Button
         {
@@ -139,7 +180,7 @@ public partial class MainForm : Form
             Padding = new Padding(5, 2, 5, 2)
         };
         _updateButton.Click += UpdateButton_Click;
-        buttonsPanel.Controls.Add(_updateButton);
+        _buttonsPanel.Controls.Add(_updateButton);
 
         // Add columns
         var checkBoxColumn = new DataGridViewCheckBoxColumn { HeaderText = "" };
@@ -171,30 +212,7 @@ public partial class MainForm : Form
         statusColumn.ReadOnly = true;
         _dataGridView.Columns.Add(statusColumn);
 
-        // Create bottom panel for logs and status
-        var bottomPanel = new Panel 
-        { 
-            Dock = DockStyle.Fill,
-            MinimumSize = new Size(0, 150)  // Ensure minimum height
-        };
-        _splitContainer.Panel2.Padding = new Padding(0);  // No padding in Panel2
-        _splitContainer.Panel2.Controls.Add(bottomPanel);
-
-        // Create status label at the bottom - MUST be added FIRST
-        _statusLabel = new Label
-        {
-            Text = "Готов к обновлению",
-            Dock = DockStyle.Bottom,
-            Height = 28,
-            BorderStyle = BorderStyle.FixedSingle,
-            BackColor = SystemColors.Control,
-            Padding = new Padding(5, 5, 5, 5),
-            TextAlign = ContentAlignment.MiddleLeft
-        };
-        bottomPanel.Controls.Add(_statusLabel);
-
-        // Create RichTextBox for logs - MUST be added AFTER status label
-        // Use Dock to fill remaining space above status label
+        // Create RichTextBox for logs - fills the log panel
         _logTextBox = new RichTextBox
         {
             Dock = DockStyle.Fill,
@@ -209,35 +227,41 @@ public partial class MainForm : Form
             ScrollBars = RichTextBoxScrollBars.Vertical,
             AcceptsTab = false
         };
-        bottomPanel.Controls.Add(_logTextBox);
-
-        Controls.Add(_splitContainer);
+        logPanel.Controls.Add(_logTextBox);
     }
 
     private void LoadConfigurations()
     {
-        var projectRoot = FindProjectRoot();
-        var credsFolder = Path.Combine(projectRoot, "creds");
-        var configurations = _configurationLoader.LoadConfigurations(credsFolder);
-        var savedStates = _stateManager.LoadState().ToDictionary(s => s.FileName, s => s);
-
-        _dataGridView.Rows.Clear();
-
-        foreach (var config in configurations)
+        try
         {
-            var row = _dataGridView.Rows.Add();
-            var newRow = _dataGridView.Rows[row];
+            var projectRoot = FindProjectRoot();
+            var credsFolder = Path.Combine(projectRoot, "creds");
+            var configurations = _configurationLoader.LoadConfigurations(credsFolder);
+            var savedStates = _stateManager.LoadState().ToDictionary(s => s.FileName, s => s);
 
-            var isSelected = savedStates.ContainsKey(config.FileName) 
-                ? savedStates[config.FileName].IsSelected 
-                : true;
+            _dataGridView.Rows.Clear();
 
-            newRow.Cells[0].Value = isSelected;
-            newRow.Cells["FileConfig"].Value = config.FileName;
-            newRow.Cells["ProductName"].Value = config.Credentials.ProductName ?? "";
-            newRow.Cells["CurrentVersion"].Value = "";
-            newRow.Cells["NewVersion"].Value = "";
-            newRow.Cells["Status"].Value = "Ожидание";
+            foreach (var config in configurations)
+            {
+                var row = _dataGridView.Rows.Add();
+                var newRow = _dataGridView.Rows[row];
+
+                var isSelected = savedStates.ContainsKey(config.FileName) 
+                    ? savedStates[config.FileName].IsSelected 
+                    : true;
+
+                newRow.Cells[0].Value = isSelected;
+                newRow.Cells["FileConfig"].Value = config.FileName;
+                newRow.Cells["ProductName"].Value = config.Credentials.ProductName ?? "";
+                newRow.Cells["CurrentVersion"].Value = "";
+                newRow.Cells["NewVersion"].Value = "";
+                newRow.Cells["Status"].Value = "Ожидание";
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Ошибка при загрузке конфигураций: {ex.Message}\n\n{ex.StackTrace}", 
+                "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
