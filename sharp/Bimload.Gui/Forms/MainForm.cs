@@ -38,12 +38,13 @@ public partial class MainForm : Form
 
         // Initialize update service with real implementations
         var wmiQueryWrapper = new WmiQueryWrapper();
-        var wmiService = new WmiService(wmiQueryWrapper);
         var versionService = new VersionService();
         var httpClient = new System.Net.Http.HttpClient();
         var httpClientWrapper = new HttpClientWrapper(httpClient);
         var programInstaller = new ProgramInstaller();
         _logger = new RichTextBoxLogger(_logTextBox);
+        // Pass logger to WmiService for debugging
+        var wmiService = new WmiService(wmiQueryWrapper, _logger);
         _updateService = new UpdateService(wmiService, versionService, httpClientWrapper, programInstaller, _logger);
 
         LoadConfigurations();

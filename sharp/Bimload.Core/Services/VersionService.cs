@@ -27,10 +27,24 @@ public class VersionService : IVersionService
             return null;
         }
 
-        var match = Regex.Match(productVersion, pattern, RegexOptions.IgnoreCase);
-        if (match.Success && match.Groups.Count > 1)
+        try
         {
-            return match.Groups[1].Value;
+            var match = Regex.Match(productVersion, pattern, RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                // Groups[0] is the full match, Groups[1] is the first capturing group
+                if (match.Groups.Count > 1)
+                {
+                    return match.Groups[1].Value;
+                }
+                // If no capturing groups, return the full match
+                return match.Value;
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            // Invalid regex pattern
+            throw new ArgumentException($"Invalid regex pattern '{pattern}': {ex.Message}", ex);
         }
 
         return null;

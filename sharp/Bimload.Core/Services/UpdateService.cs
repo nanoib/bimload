@@ -36,11 +36,53 @@ public class UpdateService : IUpdateService
 
         // Get installed program
         var installedProgram = _wmiService.GetLatestInstalledProgram(credentials.ProductName ?? string.Empty);
-        var pcLatestVersion = installedProgram != null && !string.IsNullOrWhiteSpace(credentials.ProductVersionPattern)
-            ? _versionService.ExtractVersionFromProductVersion(installedProgram.Version ?? string.Empty, credentials.ProductVersionPattern)
-            : null;
-
-        _logger.Log($"Текущая версия: {pcLatestVersion ?? "не установлена"}");
+        
+        // Calculate pcLatestVersion
+        string? pcLatestVersion = null;
+        
+        if (installedProgram == null)
+        {
+            _logger.Log("Программа не найдена в системе", LogLevel.Warning);
+            _logger.Log("Текущая версия: не установлена");
+        }
+        else
+        {
+            _logger.Log($"Найдена программа: {installedProgram.Name}, версия WMI: {installedProgram.Version}");
+            
+            if (string.IsNullOrWhiteSpace(credentials.ProductVersionPattern))
+            {
+                _logger.Log("Паттерн productVersionPattern не указан в конфигурации", LogLevel.Warning);
+                _logger.Log("Текущая версия: не установлена");
+            }
+            else
+            {
+                try
+                {
+                    // Debug: show what we're working with
+                    _logger.Log($"Попытка извлечь версию. WMI версия: '{installedProgram.Version}', паттерн: '{credentials.ProductVersionPattern}'");
+                    
+                    pcLatestVersion = _versionService.ExtractVersionFromProductVersion(
+                        installedProgram.Version ?? string.Empty, 
+                        credentials.ProductVersionPattern);
+                    
+                    if (pcLatestVersion == null)
+                    {
+                        _logger.Log($"Не удалось извлечь версию из '{installedProgram.Version}' по паттерну '{credentials.ProductVersionPattern}'", LogLevel.Warning);
+                        _logger.Log($"Проверьте правильность паттерна. Версия WMI: '{installedProgram.Version}', паттерн: '{credentials.ProductVersionPattern}'", LogLevel.Warning);
+                        _logger.Log("Текущая версия: не установлена");
+                    }
+                    else
+                    {
+                        _logger.Log($"Текущая версия: {pcLatestVersion}");
+                    }
+                }
+                catch (ArgumentException ex)
+                {
+                    _logger.Log($"Ошибка в паттерне productVersionPattern: {ex.Message}", LogLevel.Error);
+                    _logger.Log("Текущая версия: не установлена");
+                }
+            }
+        }
 
         // Get latest file from HTTP
         if (string.IsNullOrWhiteSpace(credentials.HttpUrl) || string.IsNullOrWhiteSpace(credentials.HttpPattern))

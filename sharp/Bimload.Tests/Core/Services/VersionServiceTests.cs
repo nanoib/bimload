@@ -39,6 +39,22 @@ public class VersionServiceTests
     }
 
     [Fact]
+    public void ExtractVersionFromProductVersion_ShouldExtractVersion_FromVentVersion()
+    {
+        // Arrange - test with actual vent.ini pattern and version
+        // Pattern from file: .*\\.(\\d+)$
+        // When read from file, it becomes: .*\.(\d+)$
+        var productVersion = "25.1.13388.13388";
+        var pattern = @".*\.(\d+)$";  // This is what we get after reading from .ini file
+
+        // Act
+        var result = _versionService.ExtractVersionFromProductVersion(productVersion, pattern);
+
+        // Assert
+        result.Should().Be("13388");
+    }
+
+    [Fact]
     public void CompareVersions_ShouldReturnTrue_WhenOldVersionIsLessThanNew()
     {
         // Arrange

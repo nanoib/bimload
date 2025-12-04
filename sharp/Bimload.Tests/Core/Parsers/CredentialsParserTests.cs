@@ -15,7 +15,7 @@ public class CredentialsParserTests
         // Arrange
         var iniContent = @"localPath=C:\\Users\\test\\Desktop\\Distr\\
 productName=BIM Test Product
-fileVersionPattern=Test(\d+)\.exe
+fileVersionPattern=Test\((\d+)\)\.exe
 productVersionPattern=.*\.(\d+)$
 httpUrl=https://example.com/distrs/
 httpPattern=<span class=""name"">([^<]+)</span>";
@@ -27,7 +27,7 @@ httpPattern=<span class=""name"">([^<]+)</span>";
         result.Should().NotBeNull();
         result.LocalPath.Should().Be(@"C:\Users\test\Desktop\Distr\");
         result.ProductName.Should().Be("BIM Test Product");
-        result.FileVersionPattern.Should().Be(@"Test(\d+)\.exe");
+        result.FileVersionPattern.Should().Be(@"Test\((\d+)\)\.exe");
         result.ProductVersionPattern.Should().Be(@".*\.(\d+)$");
         result.HttpUrl.Should().Be("https://example.com/distrs/");
         result.HttpPattern.Should().Be(@"<span class=""name"">([^<]+)</span>");

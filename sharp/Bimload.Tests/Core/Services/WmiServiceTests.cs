@@ -12,13 +12,15 @@ public class WmiServiceTests
     {
         // Arrange
         var mockWrapper = new Mock<IWmiQueryWrapper>();
-        var programs = new List<ManagementObjectWrapper>
+        // Now we get ALL programs and filter in code
+        var allPrograms = new List<ManagementObjectWrapper>
         {
             new() { Name = "BIM Test Product x64 24", Version = "24.100.100" },
-            new() { Name = "BIM Test Product x64 24", Version = "24.200.200" }
+            new() { Name = "BIM Test Product x64 24", Version = "24.200.200" },
+            new() { Name = "Other Product", Version = "1.0.0" }
         };
 
-        mockWrapper.Setup(w => w.Query(It.IsAny<string>())).Returns(programs);
+        mockWrapper.Setup(w => w.Query("SELECT * FROM Win32_Product")).Returns(allPrograms);
 
         var service = new WmiService(mockWrapper.Object);
 
@@ -36,9 +38,12 @@ public class WmiServiceTests
     {
         // Arrange
         var mockWrapper = new Mock<IWmiQueryWrapper>();
-        var emptyList = new List<ManagementObjectWrapper>();
+        var allPrograms = new List<ManagementObjectWrapper>
+        {
+            new() { Name = "Other Product", Version = "1.0.0" }
+        };
 
-        mockWrapper.Setup(w => w.Query(It.IsAny<string>())).Returns(emptyList);
+        mockWrapper.Setup(w => w.Query("SELECT * FROM Win32_Product")).Returns(allPrograms);
 
         var service = new WmiService(mockWrapper.Object);
 
@@ -54,14 +59,15 @@ public class WmiServiceTests
     {
         // Arrange
         var mockWrapper = new Mock<IWmiQueryWrapper>();
-        var programs = new List<ManagementObjectWrapper>
+        var allPrograms = new List<ManagementObjectWrapper>
         {
             new() { Name = "BIM Test Product x64 24", Version = "24.300.300" },
             new() { Name = "BIM Test Product x64 24", Version = "24.100.100" },
-            new() { Name = "BIM Test Product x64 24", Version = "24.200.200" }
+            new() { Name = "BIM Test Product x64 24", Version = "24.200.200" },
+            new() { Name = "Other Product", Version = "1.0.0" }
         };
 
-        mockWrapper.Setup(w => w.Query(It.IsAny<string>())).Returns(programs);
+        mockWrapper.Setup(w => w.Query("SELECT * FROM Win32_Product")).Returns(allPrograms);
 
         var service = new WmiService(mockWrapper.Object);
 
