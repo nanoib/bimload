@@ -25,11 +25,31 @@ public class HttpClientWrapper : IHttpClient
             throw new ArgumentException("HTTP pattern cannot be null or empty", nameof(httpPattern));
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, httpUrl);
-        request.Headers.Add("User-Agent", "Bimload/1.0");
+        // Ensure URL ends with / if it's a directory
+        var normalizedUrl = httpUrl;
+        if (!normalizedUrl.EndsWith("/") && !normalizedUrl.Contains("?"))
+        {
+            normalizedUrl += "/";
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, normalizedUrl);
+        
+        // Add browser-like headers to avoid blocking
+        request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        request.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
+        request.Headers.Add("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
+        request.Headers.Add("Accept-Encoding", "gzip, deflate");
+        request.Headers.Add("Connection", "keep-alive");
+        request.Headers.Add("Upgrade-Insecure-Requests", "1");
         
         using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-        response.EnsureSuccessStatusCode();
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException(
+                $"Response status code does not indicate success: {(int)response.StatusCode} ({response.StatusCode}). " +
+                $"URL: {normalizedUrl}");
+        }
 
         var htmlContent = await response.Content.ReadAsStringAsync();
         var matches = Regex.Matches(htmlContent, httpPattern, RegexOptions.IgnoreCase);

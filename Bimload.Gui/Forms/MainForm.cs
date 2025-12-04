@@ -47,7 +47,11 @@ public partial class MainForm : Form
             // Initialize update service with real implementations
             var wmiQueryWrapper = new WmiQueryWrapper();
             var versionService = new VersionService();
-            var httpClient = new System.Net.Http.HttpClient
+            var httpClientHandler = new System.Net.Http.HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
+            };
+            var httpClient = new System.Net.Http.HttpClient(httpClientHandler)
             {
                 Timeout = TimeSpan.FromSeconds(30)  // 30 seconds timeout
             };
