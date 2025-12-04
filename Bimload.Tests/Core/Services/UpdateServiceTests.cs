@@ -121,7 +121,8 @@ public class UpdateServiceTests
         var localFilePath = Path.Combine(@"C:\Temp\", "TestProduct(101).exe");
         mockHttpClient.Setup(h => h.DownloadFileAsync(
             It.IsAny<string>(),
-            localFilePath))
+            It.IsAny<string>(),
+            It.IsAny<Action<long, long?>?>()))
             .Returns(Task.CompletedTask);
 
         mockProgramInstaller.Setup(p => p.UninstallProgramAsync(It.IsAny<InstalledProgram>()))

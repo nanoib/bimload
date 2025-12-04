@@ -354,7 +354,7 @@ public partial class MainForm : Form
                         progressCallback = UpdateDownloadProgress;
                     }
 
-                    var result = await _updateService.UpdateAsync(credentials, progressCallback);
+                    var result = await _updateService.UpdateAsync(credentials, downloadProgressCallback: progressCallback);
 
                     row.Cells["CurrentVersion"].Value = result.OldVersion ?? "";
                     row.Cells["NewVersion"].Value = result.NewVersion ?? "";

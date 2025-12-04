@@ -1,8 +1,10 @@
+using System.Runtime.Versioning;
 using Bimload.Core.Logging;
 using Bimload.Core.Models;
 
 namespace Bimload.Core.Services;
 
+[SupportedOSPlatform("windows")]
 public class WmiService : IWmiService
 {
     private readonly IWmiQueryWrapper _wmiQueryWrapper;

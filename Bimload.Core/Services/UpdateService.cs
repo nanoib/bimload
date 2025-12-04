@@ -1,8 +1,10 @@
+using System.Runtime.Versioning;
 using Bimload.Core.Logging;
 using Bimload.Core.Models;
 
 namespace Bimload.Core.Services;
 
+[SupportedOSPlatform("windows")]
 public class UpdateService : IUpdateService
 {
     private readonly IWmiService _wmiService;
@@ -25,7 +27,7 @@ public class UpdateService : IUpdateService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<UpdateResult> UpdateAsync(Credentials credentials)
+    public async Task<UpdateResult> UpdateAsync(Credentials credentials, Action<long, long?>? downloadProgressCallback = null)
     {
         if (credentials == null)
         {
@@ -145,7 +147,7 @@ public class UpdateService : IUpdateService
             _logger.Log($"Скачивание файла: {latestFile}");
             var downloadUrl = new Uri(new Uri(credentials.HttpUrl), latestFile).AbsoluteUri;
             _logger.Log($"URL для загрузки: {downloadUrl}");
-            await _httpClient.DownloadFileAsync(downloadUrl, localFilePath);
+            await _httpClient.DownloadFileAsync(downloadUrl, localFilePath, downloadProgressCallback);
             _logger.Log("Файл успешно скачан", LogLevel.Success);
         }
         else

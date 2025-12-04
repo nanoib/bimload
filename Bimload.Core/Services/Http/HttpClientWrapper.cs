@@ -69,7 +69,7 @@ public class HttpClientWrapper : IHttpClient
         return null;
     }
 
-    public async Task DownloadFileAsync(string url, string localFilePath)
+    public async Task DownloadFileAsync(string url, string localFilePath, Action<long, long?>? progressCallback = null)
     {
         if (string.IsNullOrWhiteSpace(url))
         {
@@ -92,10 +92,20 @@ public class HttpClientWrapper : IHttpClient
         using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
 
+        var totalBytes = response.Content.Headers.ContentLength;
+        var downloadedBytes = 0L;
+        var buffer = new byte[8192];
+
         using var contentStream = await response.Content.ReadAsStreamAsync();
         using var fileStream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, useAsync: true);
         
-        await contentStream.CopyToAsync(fileStream);
+        int bytesRead;
+        while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+        {
+            await fileStream.WriteAsync(buffer, 0, bytesRead);
+            downloadedBytes += bytesRead;
+            progressCallback?.Invoke(downloadedBytes, totalBytes);
+        }
     }
 }
 
