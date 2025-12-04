@@ -2,7 +2,7 @@
 
 ## Обзор
 
-Bimload.Gui может быть скомпилирован в самодостаточный (self-contained) исполняемый файл, который включает все необходимые зависимости .NET и не требует установки .NET Runtime на целевом компьютере.
+Bimload.Gui публикуется как framework-dependent исполняемый файл, который требует установленный .NET 8.0 Desktop Runtime на целевом компьютере. Это позволяет значительно уменьшить размер выходного файла (с ~150 МБ до ~5-10 МБ).
 
 ## Требования для публикации
 
@@ -29,9 +29,10 @@ publish.bat
 dotnet publish Bimload.Gui\Bimload.Gui.csproj `
     -c Release `
     -r win-x64 `
-    --self-contained true `
+    --self-contained false `
     -p:PublishSingleFile=true `
-    -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:DebugType=None `
+    -p:DebugSymbols=false `
     -o publish
 ```
 
@@ -39,9 +40,8 @@ dotnet publish Bimload.Gui\Bimload.Gui.csproj `
 
 - **`-c Release`** — конфигурация сборки (Release для оптимизированной версии)
 - **`-r win-x64`** — целевая платформа (Windows x64)
-- **`--self-contained true`** — включает .NET Runtime в выходной файл
+- **`--self-contained false`** — не включает .NET Runtime в выходной файл (требуется установленный .NET 8.0 Runtime)
 - **`-p:PublishSingleFile=true`** — создает один исполняемый файл вместо множества DLL
-- **`-p:IncludeNativeLibrariesForSelfExtract=true`** — включает нативные библиотеки в exe
 - **`-p:DebugType=None`** — отключает создание PDB файлов
 - **`-p:DebugSymbols=false`** — отключает отладочные символы
 - **`-o publish`** — выходная директория
@@ -52,7 +52,7 @@ dotnet publish Bimload.Gui\Bimload.Gui.csproj `
 
 ```
 publish/
-├── Bimload.Gui.exe          # Основной исполняемый файл (self-contained)
+├── Bimload.exe              # Основной исполняемый файл (~5-10 МБ)
 └── creds/                    # Папка с конфигурационными файлами
     ├── heat_db.ini
     ├── ops.ini
@@ -63,40 +63,50 @@ publish/
     └── ws.ini
 ```
 
-**Примечание**: PDB файлы (файлы отладочной информации) исключены из публикации для уменьшения размера выходной папки.
+**Примечания**: 
+- PDB файлы (файлы отладочной информации) исключены из публикации для уменьшения размера выходной папки.
+- Размер exe файла значительно меньше (~5-10 МБ вместо ~150 МБ), так как .NET Runtime не включен.
 
 ## Распространение приложения
 
 Для распространения приложения достаточно скопировать:
 
-1. **Bimload.Gui.exe** — основной исполняемый файл
+1. **Bimload.exe** — основной исполняемый файл
 2. **Папку `creds/`** со всеми `.ini` файлами
 
 Приложение автоматически найдет папку `creds/` в той же директории, где находится exe файл.
 
 ## Размер выходного файла
 
-Self-contained exe файл будет иметь размер примерно **70-100 МБ**, так как включает в себя:
-- .NET 8.0 Runtime
-- Все необходимые библиотеки
-- Нативные библиотеки Windows
+Framework-dependent exe файл будет иметь размер примерно **5-10 МБ**, так как не включает .NET Runtime. Приложение использует установленный на системе .NET 8.0 Desktop Runtime.
+
+## Проверка наличия .NET Runtime
+
+При запуске приложение автоматически проверяет наличие .NET 8.0 Runtime. Если Runtime отсутствует, отображается сообщение об ошибке с ссылкой на официальную страницу загрузки Microsoft:
+
+- **Сообщение**: "Для работы приложения требуется .NET 8.0 Runtime"
+- **Ссылка**: https://dotnet.microsoft.com/download/dotnet/8.0
+- **Действие**: Автоматически открывается страница загрузки в браузере
 
 ## Альтернативные варианты публикации
 
-### Framework-dependent (требует установленный .NET Runtime)
+### Self-contained (все зависимости включены)
 
-Если на целевом компьютере уже установлен .NET 8.0 Runtime, можно создать более легкую версию:
+Если требуется создать полностью самодостаточное приложение без зависимости от установленного .NET Runtime:
 
 ```powershell
 dotnet publish Bimload.Gui\Bimload.Gui.csproj `
     -c Release `
     -r win-x64 `
-    --self-contained false `
+    --self-contained true `
     -p:PublishSingleFile=true `
+    -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:DebugType=None `
+    -p:DebugSymbols=false `
     -o publish
 ```
 
-Размер будет значительно меньше (~5-10 МБ), но потребуется установленный .NET Runtime.
+Размер будет значительно больше (~150 МБ), но не потребуется установленный .NET Runtime на целевом компьютере.
 
 ### Другие платформы
 
@@ -116,16 +126,32 @@ dotnet publish Bimload.Gui\Bimload.Gui.csproj `
 ### Папка creds не найдена
 
 Если приложение не находит папку `creds/`, убедитесь, что:
-1. Папка `creds/` находится в той же директории, что и `Bimload.Gui.exe`
+1. Папка `creds/` находится в той же директории, что и `Bimload.exe`
 2. В папке `creds/` есть хотя бы один `.ini` файл
 3. У приложения есть права на чтение файлов в папке `creds/`
 
 ### Ошибки при запуске
 
 Если exe файл не запускается:
-1. Проверьте, что вы используете Windows (приложение работает только на Windows)
-2. Убедитесь, что у вас есть права на выполнение файла
-3. Проверьте антивирус — некоторые антивирусы могут блокировать self-contained приложения
+1. **Проверьте наличие .NET 8.0 Runtime**: Приложение автоматически покажет сообщение, если Runtime отсутствует. Установите .NET 8.0 Desktop Runtime с официального сайта Microsoft.
+2. Проверьте, что вы используете Windows (приложение работает только на Windows)
+3. Убедитесь, что у вас есть права на выполнение файла
+4. Проверьте антивирус — некоторые антивирусы могут блокировать приложения
+
+### Проверка установленного .NET Runtime
+
+Чтобы проверить, установлен ли .NET 8.0 Runtime на вашем компьютере, выполните в командной строке:
+
+```cmd
+dotnet --list-runtimes
+```
+
+Вы должны увидеть строку вида:
+```
+Microsoft.WindowsDesktop.App 8.0.x [C:\Program Files\dotnet\shared\Microsoft.WindowsDesktop.App]
+```
+
+Если такой строки нет, установите .NET 8.0 Desktop Runtime с https://dotnet.microsoft.com/download/dotnet/8.0
 
 ## Оптимизация размера (опционально)
 

@@ -2,7 +2,7 @@
 
 ## Быстрый старт
 
-Для создания self-contained exe файла выполните одну из команд:
+Для создания framework-dependent exe файла выполните одну из команд:
 
 ### PowerShell
 ```powershell
@@ -16,18 +16,24 @@ publish.bat
 
 ### Вручную
 ```powershell
-dotnet publish Bimload.Gui\Bimload.Gui.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o publish
+dotnet publish Bimload.Gui\Bimload.Gui.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o publish
 ```
 
 ## Результат
 
 После публикации в папке `publish/` будет:
-- **Bimload.Gui.exe** — самодостаточный исполняемый файл (~162 МБ)
+- **Bimload.exe** — исполняемый файл (~5-10 МБ)
 - **creds/** — папка с конфигурационными файлами
+
+## Требования
+
+**Важно:** На целевом компьютере должен быть установлен **.NET 8.0 Desktop Runtime**. 
+
+Если .NET Runtime отсутствует, приложение покажет сообщение об ошибке со ссылкой на скачивание.
 
 ## Распространение
 
-Скопируйте `Bimload.Gui.exe` и папку `creds/` в нужное место. Приложение автоматически найдет папку `creds/` рядом с exe файлом.
+Скопируйте `Bimload.exe` и папку `creds/` в нужное место. Приложение автоматически найдет папку `creds/` рядом с exe файлом.
 
 ## Подробная документация
 
