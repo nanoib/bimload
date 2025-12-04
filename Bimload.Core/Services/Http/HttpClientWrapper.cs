@@ -13,7 +13,7 @@ public class HttpClientWrapper : IHttpClient
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
     }
 
-    public async Task<string?> GetLatestFileAsync(string httpUrl, string httpPattern)
+    public async Task<string?> GetLatestFileAsync(string httpUrl, string httpPattern, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(httpUrl))
         {
@@ -24,6 +24,8 @@ public class HttpClientWrapper : IHttpClient
         {
             throw new ArgumentException("HTTP pattern cannot be null or empty", nameof(httpPattern));
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         // Ensure URL ends with / if it's a directory
         var normalizedUrl = httpUrl;
@@ -42,7 +44,7 @@ public class HttpClientWrapper : IHttpClient
         request.Headers.Add("Connection", "keep-alive");
         request.Headers.Add("Upgrade-Insecure-Requests", "1");
         
-        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         
         if (!response.IsSuccessStatusCode)
         {
@@ -51,7 +53,7 @@ public class HttpClientWrapper : IHttpClient
                 $"URL: {normalizedUrl}");
         }
 
-        var htmlContent = await response.Content.ReadAsStringAsync();
+        var htmlContent = await response.Content.ReadAsStringAsync(cancellationToken);
         var matches = Regex.Matches(htmlContent, httpPattern, RegexOptions.IgnoreCase);
 
         if (matches.Count == 0)
@@ -69,7 +71,7 @@ public class HttpClientWrapper : IHttpClient
         return null;
     }
 
-    public async Task DownloadFileAsync(string url, string localFilePath, Action<long, long?>? progressCallback = null)
+    public async Task DownloadFileAsync(string url, string localFilePath, CancellationToken cancellationToken = default, Action<long, long?>? progressCallback = null)
     {
         if (string.IsNullOrWhiteSpace(url))
         {
@@ -81,6 +83,8 @@ public class HttpClientWrapper : IHttpClient
             throw new ArgumentException("Local file path cannot be null or empty", nameof(localFilePath));
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         // Ensure directory exists
         var directory = Path.GetDirectoryName(localFilePath);
         if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
@@ -89,20 +93,21 @@ public class HttpClientWrapper : IHttpClient
         }
 
         // Use streaming download instead of loading entire file into memory
-        using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         var totalBytes = response.Content.Headers.ContentLength;
         var downloadedBytes = 0L;
         var buffer = new byte[8192];
 
-        using var contentStream = await response.Content.ReadAsStreamAsync();
+        using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var fileStream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, useAsync: true);
         
         int bytesRead;
-        while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+        while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
         {
-            await fileStream.WriteAsync(buffer, 0, bytesRead);
+            cancellationToken.ThrowIfCancellationRequested();
+            await fileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
             downloadedBytes += bytesRead;
             progressCallback?.Invoke(downloadedBytes, totalBytes);
         }

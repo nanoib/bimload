@@ -12,17 +12,20 @@ namespace Bimload.Gui.Forms;
 public partial class MainForm : Form
 {
     // Fixed size constants
-    private const int DataGridViewHeight = 220; // Reduced by 40% from 300px
+    private const int DataGridViewHeight = 230; // Reduced by 40% from 300px
     private const int ButtonsPanelHeight = 45;
     private const int StatusLabelHeight = 28;
-    private const int SpacingBetweenElements = 25;
+    private const int SpacingBetweenElements = 20;
     
     private DataGridView _dataGridView = null!;
     private RichTextBox _logTextBox = null!;
     private Button _toggleAllButton = null!;
     private Button _updateButton = null!;
+    private Button _cancelButton = null!;
     private Label _statusLabel = null!;
     private Panel _buttonsPanel = null!;
+
+    private CancellationTokenSource? _cancellationTokenSource;
 
     private readonly ConfigurationLoader _configurationLoader;
     private readonly StateManager _stateManager;
@@ -188,6 +191,18 @@ public partial class MainForm : Form
         _updateButton.Click += UpdateButton_Click;
         _buttonsPanel.Controls.Add(_updateButton);
 
+        _cancelButton = new Button
+        {
+            Text = "Отменить",
+            AutoSize = true,
+            Location = new Point(_updateButton.Right + 15, 5),
+            Padding = new Padding(5, 2, 5, 2),
+            Enabled = false,
+            Visible = false
+        };
+        _cancelButton.Click += CancelButton_Click;
+        _buttonsPanel.Controls.Add(_cancelButton);
+
         // Add columns
         var checkBoxColumn = new DataGridViewCheckBoxColumn { HeaderText = "" };
         checkBoxColumn.Width = checkBoxWidth;
@@ -319,60 +334,105 @@ public partial class MainForm : Form
     {
         _statusLabel.Text = "Выполняется обновление...";
         _updateButton.Enabled = false;
+        _toggleAllButton.Enabled = false;
+        _cancelButton.Enabled = true;
+        _cancelButton.Visible = true;
         Refresh();
+
+        // Create cancellation token source
+        _cancellationTokenSource = new CancellationTokenSource();
+        var cancellationToken = _cancellationTokenSource.Token;
 
         // Save state
         SaveCurrentState();
 
-        // Process updates
-        foreach (DataGridViewRow row in _dataGridView.Rows)
+        try
         {
-            if (row.Cells[0].Value as bool? == true)
+            // Process updates
+            foreach (DataGridViewRow row in _dataGridView.Rows)
             {
-                var fileName = row.Cells["FileConfig"].Value?.ToString() ?? "";
-                row.Cells["Status"].Value = "Обновляется...";
-                Refresh();
+                // Check for cancellation
+                cancellationToken.ThrowIfCancellationRequested();
 
-                try
+                if (row.Cells[0].Value as bool? == true)
                 {
-                    var projectRoot = FindProjectRoot();
-                    var credsFolder = Path.Combine(projectRoot, "creds");
-                    var iniFile = Path.Combine(credsFolder, fileName);
-                    var content = await File.ReadAllTextAsync(iniFile);
-                    var credentials = new CredentialsParser().Parse(content);
+                    var fileName = row.Cells["FileConfig"].Value?.ToString() ?? "";
+                    row.Cells["Status"].Value = "Обновляется...";
+                    Refresh();
 
-                    // Create progress callback for this update
-                    Action<long, long?>? progressCallback = null;
-                    if (InvokeRequired)
+                    try
                     {
-                        progressCallback = (downloaded, total) =>
+                        var projectRoot = FindProjectRoot();
+                        var credsFolder = Path.Combine(projectRoot, "creds");
+                        var iniFile = Path.Combine(credsFolder, fileName);
+                        var content = await File.ReadAllTextAsync(iniFile, cancellationToken);
+                        var credentials = new CredentialsParser().Parse(content);
+
+                        // Create progress callback for this update
+                        Action<long, long?>? progressCallback = null;
+                        if (InvokeRequired)
                         {
-                            Invoke(new Action(() => UpdateDownloadProgress(downloaded, total)));
-                        };
+                            progressCallback = (downloaded, total) =>
+                            {
+                                if (!cancellationToken.IsCancellationRequested)
+                                {
+                                    Invoke(new Action(() => UpdateDownloadProgress(downloaded, total)));
+                                }
+                            };
+                        }
+                        else
+                        {
+                            progressCallback = UpdateDownloadProgress;
+                        }
+
+                        var result = await _updateService.UpdateAsync(credentials, cancellationToken: cancellationToken, downloadProgressCallback: progressCallback);
+
+                        row.Cells["CurrentVersion"].Value = result.OldVersion ?? "";
+                        row.Cells["NewVersion"].Value = result.NewVersion ?? "";
+                        row.Cells["Status"].Value = result.Status;
                     }
-                    else
+                    catch (OperationCanceledException)
                     {
-                        progressCallback = UpdateDownloadProgress;
+                        row.Cells["Status"].Value = "Отменено";
+                        _logger.Log($"Обновление {fileName} отменено", LogLevel.Warning);
+                        throw; // Re-throw to exit the loop
                     }
-
-                    var result = await _updateService.UpdateAsync(credentials, downloadProgressCallback: progressCallback);
-
-                    row.Cells["CurrentVersion"].Value = result.OldVersion ?? "";
-                    row.Cells["NewVersion"].Value = result.NewVersion ?? "";
-                    row.Cells["Status"].Value = result.Status;
-                }
-                catch (Exception ex)
-                {
-                    row.Cells["Status"].Value = $"Ошибка: {ex.Message}";
-                    _logger.Log($"Ошибка при обновлении {fileName}: {ex.Message}", LogLevel.Error);
+                    catch (Exception ex)
+                    {
+                        row.Cells["Status"].Value = $"Ошибка: {ex.Message}";
+                        _logger.Log($"Ошибка при обновлении {fileName}: {ex.Message}", LogLevel.Error);
+                    }
                 }
             }
-        }
 
-        _statusLabel.Text = "Обновление завершено";
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                _statusLabel.Text = "Обновление завершено";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _statusLabel.Text = "Обновление отменено";
+            _logger.Log("Процесс обновления отменен пользователем", LogLevel.Warning);
+        }
+        finally
+        {
+            _statusLabel.Refresh();
+            _updateButton.Enabled = true;
+            _toggleAllButton.Enabled = true;
+            _cancelButton.Enabled = false;
+            _cancelButton.Visible = false;
+            _cancellationTokenSource?.Dispose();
+            _cancellationTokenSource = null;
+        }
+    }
+
+    private void CancelButton_Click(object? sender, EventArgs e)
+    {
+        _cancellationTokenSource?.Cancel();
+        _cancelButton.Enabled = false;
+        _statusLabel.Text = "Отмена обновления...";
         _statusLabel.Refresh();
-        _updateButton.Enabled = true;
-        _toggleAllButton.Enabled = true;
     }
 
     private void UpdateDownloadProgress(long downloadedBytes, long? totalBytes)

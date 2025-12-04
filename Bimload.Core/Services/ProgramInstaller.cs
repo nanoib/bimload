@@ -7,7 +7,7 @@ namespace Bimload.Core.Services;
 [SupportedOSPlatform("windows")]
 public class ProgramInstaller : IProgramInstaller
 {
-    public async Task InstallProgramAsync(string filePath)
+    public async Task InstallProgramAsync(string filePath, CancellationToken cancellationToken = default)
     {
         if (filePath == null)
         {
@@ -18,6 +18,8 @@ public class ProgramInstaller : IProgramInstaller
         {
             throw new ArgumentException("File path cannot be empty", nameof(filePath));
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (!File.Exists(filePath))
         {
@@ -40,7 +42,27 @@ public class ProgramInstaller : IProgramInstaller
             throw new InvalidOperationException("Failed to start installation process");
         }
 
-        await process.WaitForExitAsync();
+        // Wait for process with cancellation support
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Try to kill the process if cancellation was requested
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                }
+            }
+            catch
+            {
+                // Ignore errors when killing the process
+            }
+            throw;
+        }
 
         if (process.ExitCode != 0)
         {
@@ -49,17 +71,20 @@ public class ProgramInstaller : IProgramInstaller
     }
 
     [SupportedOSPlatform("windows")]
-    public async Task UninstallProgramAsync(InstalledProgram program)
+    public async Task UninstallProgramAsync(InstalledProgram program, CancellationToken cancellationToken = default)
     {
         if (program == null)
         {
             throw new ArgumentNullException(nameof(program));
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         // Use WMI to uninstall the program
         // Execute in background thread to avoid blocking UI
         await Task.Run(() =>
         {
+            cancellationToken.ThrowIfCancellationRequested();
             // This requires finding the program by name and calling Uninstall()
             using var searcher = new System.Management.ManagementObjectSearcher(
                 $"SELECT * FROM Win32_Product WHERE Name = '{program.Name.Replace("'", "''")}'");
@@ -67,13 +92,14 @@ public class ProgramInstaller : IProgramInstaller
             var collection = searcher.Get();
             foreach (System.Management.ManagementObject obj in collection)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var result = obj.InvokeMethod("Uninstall", null);
                 if (result != null && Convert.ToInt32(result) != 0)
                 {
                     throw new InvalidOperationException($"Uninstall failed with return code: {result}");
                 }
             }
-        });
+        }, cancellationToken);
     }
 }
 

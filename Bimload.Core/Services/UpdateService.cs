@@ -27,17 +27,19 @@ public class UpdateService : IUpdateService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<UpdateResult> UpdateAsync(Credentials credentials, Action<long, long?>? downloadProgressCallback = null)
+    public async Task<UpdateResult> UpdateAsync(Credentials credentials, CancellationToken cancellationToken = default, Action<long, long?>? downloadProgressCallback = null)
     {
         if (credentials == null)
         {
             throw new ArgumentNullException(nameof(credentials));
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         _logger.Log($"Начало обновления для продукта: {credentials.ProductName}");
 
         // Get installed program (async to avoid blocking UI)
-        var installedProgram = await _wmiService.GetLatestInstalledProgramAsync(credentials.ProductName ?? string.Empty);
+        var installedProgram = await _wmiService.GetLatestInstalledProgramAsync(credentials.ProductName ?? string.Empty, cancellationToken);
         
         // Calculate pcLatestVersion
         string? pcLatestVersion = null;
@@ -97,7 +99,8 @@ public class UpdateService : IUpdateService
             };
         }
 
-        var latestFile = await _httpClient.GetLatestFileAsync(credentials.HttpUrl, credentials.HttpPattern);
+        cancellationToken.ThrowIfCancellationRequested();
+        var latestFile = await _httpClient.GetLatestFileAsync(credentials.HttpUrl, credentials.HttpPattern, cancellationToken);
         if (latestFile == null)
         {
             return new UpdateResult
@@ -147,7 +150,8 @@ public class UpdateService : IUpdateService
             _logger.Log($"Скачивание файла: {latestFile}");
             var downloadUrl = new Uri(new Uri(credentials.HttpUrl), latestFile).AbsoluteUri;
             _logger.Log($"URL для загрузки: {downloadUrl}");
-            await _httpClient.DownloadFileAsync(downloadUrl, localFilePath, downloadProgressCallback);
+            cancellationToken.ThrowIfCancellationRequested();
+            await _httpClient.DownloadFileAsync(downloadUrl, localFilePath, cancellationToken, downloadProgressCallback);
             _logger.Log("Файл успешно скачан", LogLevel.Success);
         }
         else
@@ -158,18 +162,21 @@ public class UpdateService : IUpdateService
         // Uninstall old version
         if (installedProgram != null)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             _logger.Log($"Удаление старой версии: {installedProgram.Name}");
-            await _programInstaller.UninstallProgramAsync(installedProgram);
+            await _programInstaller.UninstallProgramAsync(installedProgram, cancellationToken);
             _logger.Log("Старая версия удалена", LogLevel.Success);
         }
 
         // Install new version
+        cancellationToken.ThrowIfCancellationRequested();
         _logger.Log($"Установка новой версии: {localFilePath}");
-        await _programInstaller.InstallProgramAsync(localFilePath);
+        await _programInstaller.InstallProgramAsync(localFilePath, cancellationToken);
         _logger.Log("Новая версия установлена", LogLevel.Success);
 
         // Verify installation (async to avoid blocking UI)
-        var updatedProgram = await _wmiService.GetLatestInstalledProgramAsync(credentials.ProductName ?? string.Empty);
+        cancellationToken.ThrowIfCancellationRequested();
+        var updatedProgram = await _wmiService.GetLatestInstalledProgramAsync(credentials.ProductName ?? string.Empty, cancellationToken);
         var newVersion = updatedProgram != null && !string.IsNullOrWhiteSpace(credentials.ProductVersionPattern)
             ? _versionService.ExtractVersionFromProductVersion(updatedProgram.Version ?? string.Empty, credentials.ProductVersionPattern)
             : null;

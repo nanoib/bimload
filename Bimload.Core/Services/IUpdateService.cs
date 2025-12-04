@@ -6,6 +6,5 @@ namespace Bimload.Core.Services;
 [SupportedOSPlatform("windows")]
 public interface IUpdateService
 {
-    Task<UpdateResult> UpdateAsync(Credentials credentials, Action<long, long?>? downloadProgressCallback = null);
+    Task<UpdateResult> UpdateAsync(Credentials credentials, CancellationToken cancellationToken = default, Action<long, long?>? downloadProgressCallback = null);
 }
-

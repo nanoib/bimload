@@ -72,12 +72,14 @@ public class WmiService : IWmiService
         return sortedPrograms[0];
     }
 
-    public async Task<InstalledProgram?> GetLatestInstalledProgramAsync(string productName)
+    public async Task<InstalledProgram?> GetLatestInstalledProgramAsync(string productName, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(productName))
         {
             return null;
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         // Get all products and filter in code (like PowerShell does)
         // This approach is more reliable with Unicode characters and special characters
@@ -86,7 +88,7 @@ public class WmiService : IWmiService
         _logger?.Log($"Получаем список всех установленных программ", LogLevel.Info);
         
         // Use ConfigureAwait(false) to prevent blocking UI thread
-        var collection = await _wmiQueryWrapper.QueryAsync(query).ConfigureAwait(false);
+        var collection = await _wmiQueryWrapper.QueryAsync(query, cancellationToken).ConfigureAwait(false);
 
         var programs = new List<InstalledProgram>();
 

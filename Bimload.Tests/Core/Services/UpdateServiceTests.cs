@@ -1,3 +1,4 @@
+using System.Threading;
 using FluentAssertions;
 using Moq;
 using Xunit;
@@ -25,13 +26,13 @@ public class UpdateServiceTests
             Version = "24.100.100"
         };
 
-        mockWmiService.Setup(w => w.GetLatestInstalledProgramAsync("BIM Test Product"))
+        mockWmiService.Setup(w => w.GetLatestInstalledProgramAsync("BIM Test Product", It.IsAny<CancellationToken>()))
             .ReturnsAsync(installedProgram);
 
         mockVersionService.Setup(v => v.ExtractVersionFromProductVersion("24.100.100", @".*\.(\d+)$"))
             .Returns("100");
 
-        mockHttpClient.Setup(h => h.GetLatestFileAsync("https://example.com/distrs/", @"<span class=""name"">([^<]+)</span>"))
+        mockHttpClient.Setup(h => h.GetLatestFileAsync("https://example.com/distrs/", @"<span class=""name"">([^<]+)</span>", It.IsAny<CancellationToken>()))
             .ReturnsAsync("TestProduct(100).exe");
 
         mockVersionService.Setup(v => v.ExtractVersionFromFileName("TestProduct(100).exe", @"TestProduct\((\d+)\)\.exe"))
@@ -64,7 +65,7 @@ public class UpdateServiceTests
         result.Status.Should().Be("Обновление не требуется");
         result.OldVersion.Should().Be("100");
         result.NewVersion.Should().Be("100");
-        mockProgramInstaller.Verify(p => p.InstallProgramAsync(It.IsAny<string>()), Times.Never);
+        mockProgramInstaller.Verify(p => p.InstallProgramAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -91,7 +92,7 @@ public class UpdateServiceTests
 
         // Setup: first call returns old version, subsequent calls return new version
         var callCount = 0;
-        mockWmiService.Setup(w => w.GetLatestInstalledProgramAsync("BIM Test Product"))
+        mockWmiService.Setup(w => w.GetLatestInstalledProgramAsync("BIM Test Product", It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => 
             {
                 var result = callCount++ == 0 ? installedProgram : updatedProgram;
@@ -104,7 +105,7 @@ public class UpdateServiceTests
         mockVersionService.Setup(v => v.ExtractVersionFromProductVersion("24.101.101", @".*\.(\d+)$"))
             .Returns("101");
 
-        mockHttpClient.Setup(h => h.GetLatestFileAsync("https://example.com/distrs/", @"<span class=""name"">([^<]+)</span>"))
+        mockHttpClient.Setup(h => h.GetLatestFileAsync("https://example.com/distrs/", @"<span class=""name"">([^<]+)</span>", It.IsAny<CancellationToken>()))
             .ReturnsAsync("TestProduct(101).exe");
 
         mockVersionService.Setup(v => v.ExtractVersionFromFileName(It.IsAny<string>(), It.IsAny<string>()))
@@ -126,13 +127,14 @@ public class UpdateServiceTests
         mockHttpClient.Setup(h => h.DownloadFileAsync(
             It.IsAny<string>(),
             It.IsAny<string>(),
+            It.IsAny<CancellationToken>(),
             It.IsAny<Action<long, long?>?>()))
             .Returns(Task.CompletedTask);
 
-        mockProgramInstaller.Setup(p => p.UninstallProgramAsync(It.IsAny<InstalledProgram>()))
+        mockProgramInstaller.Setup(p => p.UninstallProgramAsync(It.IsAny<InstalledProgram>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        mockProgramInstaller.Setup(p => p.InstallProgramAsync(localFilePath))
+        mockProgramInstaller.Setup(p => p.InstallProgramAsync(localFilePath, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var credentials = new Credentials
@@ -158,8 +160,8 @@ public class UpdateServiceTests
         // Assert
         result.OldVersion.Should().Be("100");
         // Verify that update was attempted
-        mockProgramInstaller.Verify(p => p.UninstallProgramAsync(It.IsAny<InstalledProgram>()), Times.Once);
-        mockProgramInstaller.Verify(p => p.InstallProgramAsync(localFilePath), Times.Once);
+        mockProgramInstaller.Verify(p => p.UninstallProgramAsync(It.IsAny<InstalledProgram>(), It.IsAny<CancellationToken>()), Times.Once);
+        mockProgramInstaller.Verify(p => p.InstallProgramAsync(localFilePath, It.IsAny<CancellationToken>()), Times.Once);
         
         // The status depends on verification after installation
         // If the updated program is found, status should be "Программа обновлена"

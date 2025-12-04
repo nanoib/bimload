@@ -7,5 +7,5 @@ namespace Bimload.Core.Services;
 public interface IWmiService
 {
     InstalledProgram? GetLatestInstalledProgram(string productName);
-    Task<InstalledProgram?> GetLatestInstalledProgramAsync(string productName);
+    Task<InstalledProgram?> GetLatestInstalledProgramAsync(string productName, CancellationToken cancellationToken = default);
 }
