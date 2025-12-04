@@ -144,6 +144,7 @@ public class UpdateService : IUpdateService
         {
             _logger.Log($"Скачивание файла: {latestFile}");
             var downloadUrl = new Uri(new Uri(credentials.HttpUrl), latestFile).AbsoluteUri;
+            _logger.Log($"URL для загрузки: {downloadUrl}");
             await _httpClient.DownloadFileAsync(downloadUrl, localFilePath);
             _logger.Log("Файл успешно скачан", LogLevel.Success);
         }

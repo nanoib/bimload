@@ -39,7 +39,10 @@ public partial class MainForm : Form
         // Initialize update service with real implementations
         var wmiQueryWrapper = new WmiQueryWrapper();
         var versionService = new VersionService();
-        var httpClient = new System.Net.Http.HttpClient();
+        var httpClient = new System.Net.Http.HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(30)  // 30 seconds timeout
+        };
         var httpClientWrapper = new HttpClientWrapper(httpClient);
         var programInstaller = new ProgramInstaller();
         _logger = new RichTextBoxLogger(_logTextBox);
@@ -191,12 +194,10 @@ public partial class MainForm : Form
         bottomPanel.Controls.Add(_statusLabel);
 
         // Create RichTextBox for logs - MUST be added AFTER status label
-        // Use Anchor instead of Dock to prevent overlapping with status label
+        // Use Dock to fill remaining space above status label
         _logTextBox = new RichTextBox
         {
-            Location = new Point(0, 0),
-            Size = new Size(bottomPanel.Width, bottomPanel.Height - _statusLabel.Height),
-            Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+            Dock = DockStyle.Fill,
             ReadOnly = true,
             HideSelection = true,
             TabStop = false,
@@ -209,13 +210,6 @@ public partial class MainForm : Form
             AcceptsTab = false
         };
         bottomPanel.Controls.Add(_logTextBox);
-        
-        // Update RichTextBox size when panel resizes
-        bottomPanel.Resize += (s, e) =>
-        {
-            _logTextBox.Width = bottomPanel.Width;
-            _logTextBox.Height = bottomPanel.Height - _statusLabel.Height;
-        };
 
         Controls.Add(_splitContainer);
     }

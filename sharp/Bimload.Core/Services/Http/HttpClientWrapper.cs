@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 
@@ -24,7 +25,10 @@ public class HttpClientWrapper : IHttpClient
             throw new ArgumentException("HTTP pattern cannot be null or empty", nameof(httpPattern));
         }
 
-        var response = await _httpClient.GetAsync(httpUrl);
+        using var request = new HttpRequestMessage(HttpMethod.Get, httpUrl);
+        request.Headers.Add("User-Agent", "Bimload/1.0");
+        
+        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
 
         var htmlContent = await response.Content.ReadAsStringAsync();
@@ -57,11 +61,6 @@ public class HttpClientWrapper : IHttpClient
             throw new ArgumentException("Local file path cannot be null or empty", nameof(localFilePath));
         }
 
-        var response = await _httpClient.GetAsync(url);
-        response.EnsureSuccessStatusCode();
-
-        var fileContent = await response.Content.ReadAsByteArrayAsync();
-        
         // Ensure directory exists
         var directory = Path.GetDirectoryName(localFilePath);
         if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
@@ -69,7 +68,14 @@ public class HttpClientWrapper : IHttpClient
             Directory.CreateDirectory(directory);
         }
 
-        await File.WriteAllBytesAsync(localFilePath, fileContent);
+        // Use streaming download instead of loading entire file into memory
+        using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+
+        using var contentStream = await response.Content.ReadAsStreamAsync();
+        using var fileStream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, useAsync: true);
+        
+        await contentStream.CopyToAsync(fileStream);
     }
 }
 
