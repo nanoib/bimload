@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 using Bimload.Core.Models;
 
 namespace Bimload.Core.Services;
 
+[SupportedOSPlatform("windows")]
 public class ProgramInstaller : IProgramInstaller
 {
     public async Task InstallProgramAsync(string filePath)
@@ -46,6 +48,7 @@ public class ProgramInstaller : IProgramInstaller
         }
     }
 
+    [SupportedOSPlatform("windows")]
     public async Task UninstallProgramAsync(InstalledProgram program)
     {
         if (program == null)

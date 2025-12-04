@@ -340,7 +340,21 @@ public partial class MainForm : Form
                     var content = File.ReadAllText(iniFile);
                     var credentials = new CredentialsParser().Parse(content);
 
-                    var result = await _updateService.UpdateAsync(credentials);
+                    // Create progress callback for this update
+                    Action<long, long?>? progressCallback = null;
+                    if (InvokeRequired)
+                    {
+                        progressCallback = (downloaded, total) =>
+                        {
+                            Invoke(new Action(() => UpdateDownloadProgress(downloaded, total)));
+                        };
+                    }
+                    else
+                    {
+                        progressCallback = UpdateDownloadProgress;
+                    }
+
+                    var result = await _updateService.UpdateAsync(credentials, progressCallback);
 
                     row.Cells["CurrentVersion"].Value = result.OldVersion ?? "";
                     row.Cells["NewVersion"].Value = result.NewVersion ?? "";
@@ -358,6 +372,22 @@ public partial class MainForm : Form
         _statusLabel.Refresh();
         _updateButton.Enabled = true;
         _toggleAllButton.Enabled = true;
+    }
+
+    private void UpdateDownloadProgress(long downloadedBytes, long? totalBytes)
+    {
+        if (totalBytes.HasValue && totalBytes.Value > 0)
+        {
+            var downloadedMb = downloadedBytes / (1024.0 * 1024.0);
+            var totalMb = totalBytes.Value / (1024.0 * 1024.0);
+            _statusLabel.Text = $"Скачивается файл: {downloadedMb:F1} Мб из {totalMb:F1} Мб";
+        }
+        else
+        {
+            var downloadedMb = downloadedBytes / (1024.0 * 1024.0);
+            _statusLabel.Text = $"Скачивается файл: {downloadedMb:F1} Мб";
+        }
+        _statusLabel.Refresh();
     }
 
     private static string FindProjectRoot()

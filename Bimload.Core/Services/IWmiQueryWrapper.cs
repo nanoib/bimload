@@ -1,5 +1,8 @@
+using System.Runtime.Versioning;
+
 namespace Bimload.Core.Services;
 
+[SupportedOSPlatform("windows")]
 public interface IWmiQueryWrapper
 {
     IEnumerable<ManagementObjectWrapper> Query(string query);

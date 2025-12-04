@@ -1,9 +1,12 @@
 using System.Management;
+using System.Runtime.Versioning;
 
 namespace Bimload.Core.Services;
 
+[SupportedOSPlatform("windows")]
 public class WmiQueryWrapper : IWmiQueryWrapper
 {
+    [SupportedOSPlatform("windows")]
     public IEnumerable<ManagementObjectWrapper> Query(string query)
     {
         var searcher = new ManagementObjectSearcher(query);
