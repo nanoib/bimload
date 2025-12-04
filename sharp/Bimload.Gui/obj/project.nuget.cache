@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "6V0qHq0cMqc=",
+  "success": true,
+  "projectFilePath": "C:\\repos\\bimload\\sharp\\Bimload.Gui\\Bimload.Gui.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\baydakov\\.nuget\\packages\\system.codedom\\10.0.0\\system.codedom.10.0.0.nupkg.sha512",
+    "C:\\Users\\baydakov\\.nuget\\packages\\system.management\\10.0.0\\system.management.10.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

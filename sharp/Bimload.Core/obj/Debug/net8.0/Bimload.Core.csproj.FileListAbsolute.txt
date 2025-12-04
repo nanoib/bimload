@@ -1,0 +1,13 @@
+C:\repos\bimload\sharp\Bimload.Core\bin\Debug\net8.0\Bimload.Core.deps.json
+C:\repos\bimload\sharp\Bimload.Core\bin\Debug\net8.0\Bimload.Core.dll
+C:\repos\bimload\sharp\Bimload.Core\bin\Debug\net8.0\Bimload.Core.pdb
+C:\repos\bimload\sharp\Bimload.Core\obj\Debug\net8.0\Bimload.Core.csproj.AssemblyReference.cache
+C:\repos\bimload\sharp\Bimload.Core\obj\Debug\net8.0\Bimload.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\repos\bimload\sharp\Bimload.Core\obj\Debug\net8.0\Bimload.Core.AssemblyInfoInputs.cache
+C:\repos\bimload\sharp\Bimload.Core\obj\Debug\net8.0\Bimload.Core.AssemblyInfo.cs
+C:\repos\bimload\sharp\Bimload.Core\obj\Debug\net8.0\Bimload.Core.csproj.CoreCompileInputs.cache
+C:\repos\bimload\sharp\Bimload.Core\obj\Debug\net8.0\Bimload.Core.sourcelink.json
+C:\repos\bimload\sharp\Bimload.Core\obj\Debug\net8.0\Bimload.Core.dll
+C:\repos\bimload\sharp\Bimload.Core\obj\Debug\net8.0\refint\Bimload.Core.dll
+C:\repos\bimload\sharp\Bimload.Core\obj\Debug\net8.0\Bimload.Core.pdb
+C:\repos\bimload\sharp\Bimload.Core\obj\Debug\net8.0\ref\Bimload.Core.dll
