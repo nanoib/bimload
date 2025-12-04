@@ -109,7 +109,7 @@ public partial class MainForm : Form
         }
 
         Size = new Size(formWidth, formHeight);
-        MinimumSize = new Size(formWidth, minFormHeight);
+        MinimumSize = new Size(formWidth, formHeight); // Cannot resize below initial height
         MaximumSize = new Size(formWidth, 1500);
         Padding = new Padding(10, 10, 10, 0); // Padding for top elements
 
