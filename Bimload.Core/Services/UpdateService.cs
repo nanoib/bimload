@@ -151,8 +151,29 @@ public class UpdateService : IUpdateService
             var downloadUrl = new Uri(new Uri(credentials.HttpUrl), latestFile).AbsoluteUri;
             _logger.Log($"URL для загрузки: {downloadUrl}");
             cancellationToken.ThrowIfCancellationRequested();
-            await _httpClient.DownloadFileAsync(downloadUrl, localFilePath, cancellationToken, downloadProgressCallback);
-            _logger.Log("Файл успешно скачан", LogLevel.Success);
+            
+            try
+            {
+                await _httpClient.DownloadFileAsync(downloadUrl, localFilePath, cancellationToken, downloadProgressCallback);
+                _logger.Log("Файл успешно скачан", LogLevel.Success);
+            }
+            catch (OperationCanceledException)
+            {
+                // Delete partially downloaded file if cancellation occurred during download
+                if (File.Exists(localFilePath))
+                {
+                    try
+                    {
+                        File.Delete(localFilePath);
+                        _logger.Log($"Недокачанный файл {latestFile} удален после отмены", LogLevel.Warning);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Log($"Не удалось удалить недокачанный файл {latestFile}: {ex.Message}", LogLevel.Error);
+                    }
+                }
+                throw; // Re-throw to propagate cancellation
+            }
         }
         else
         {
