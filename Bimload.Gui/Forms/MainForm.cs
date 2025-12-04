@@ -132,10 +132,11 @@ public partial class MainForm : Form
 
         // Create panel for log - MUST be added SECOND
         // Spacing from buttons is handled by buttons panel bottom padding
+        // Bottom padding ensures last log line is visible above status label
         var logPanel = new Panel
         {
             Dock = DockStyle.Fill,
-            Padding = new Padding(0, 0, 0, 0)
+            Padding = new Padding(0, 0, 0, StatusLabelHeight + 2) // Add padding to account for status label height
         };
         Controls.Add(logPanel);
 
