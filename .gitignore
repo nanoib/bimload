@@ -17,6 +17,12 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+# Explicitly ignore bin and obj folders (recursive)
+**/bin/
+**/obj/
+bin/
+obj/
+
 # Visual Studio cache/options directory
 .vs/
 
