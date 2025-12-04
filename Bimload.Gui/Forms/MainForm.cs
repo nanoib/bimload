@@ -159,6 +159,7 @@ public partial class MainForm : Form
             BorderStyle = BorderStyle.None,
             ScrollBars = ScrollBars.Vertical
         };
+        _dataGridView.CellValueChanged += DataGridView_CellValueChanged;
         Controls.Add(_dataGridView);
 
         // Create buttons in buttons panel
@@ -274,6 +275,39 @@ public partial class MainForm : Form
         {
             row.Cells[0].Value = !allChecked;
         }
+        
+        // Save state after toggling all
+        SaveCurrentState();
+    }
+    
+    private void DataGridView_CellValueChanged(object? sender, DataGridViewCellEventArgs e)
+    {
+        // Only save when checkbox column (column 0) is changed
+        if (e.ColumnIndex == 0 && e.RowIndex >= 0)
+        {
+            SaveCurrentState();
+        }
+    }
+    
+    private void SaveCurrentState()
+    {
+        try
+        {
+            var states = new List<ProgramState>();
+            foreach (DataGridViewRow row in _dataGridView.Rows)
+            {
+                states.Add(new ProgramState
+                {
+                    FileName = row.Cells["FileConfig"].Value?.ToString() ?? "",
+                    IsSelected = row.Cells[0].Value as bool? == true
+                });
+            }
+            _stateManager.SaveState(states);
+        }
+        catch (Exception ex)
+        {
+            _logger.Log($"Ошибка при сохранении состояния: {ex.Message}", LogLevel.Error);
+        }
     }
 
     private async void UpdateButton_Click(object? sender, EventArgs e)
@@ -283,16 +317,7 @@ public partial class MainForm : Form
         Refresh();
 
         // Save state
-        var states = new List<ProgramState>();
-        foreach (DataGridViewRow row in _dataGridView.Rows)
-        {
-            states.Add(new ProgramState
-            {
-                FileName = row.Cells["FileConfig"].Value?.ToString() ?? "",
-                IsSelected = row.Cells[0].Value as bool? == true
-            });
-        }
-        _stateManager.SaveState(states);
+        SaveCurrentState();
 
         // Process updates
         foreach (DataGridViewRow row in _dataGridView.Rows)
@@ -334,21 +359,19 @@ public partial class MainForm : Form
     private static string FindProjectRoot()
     {
         // Strategy: Find the directory that contains the "creds" folder
-        // Start from current working directory (when running via dotnet run)
-        // or from application startup path (when running exe directly)
+        // 1. First, check in the directory where the exe is located (for compiled exe)
+        // 2. Then, walk up from current directory to find project root (for dotnet run)
         
-        var startPath = Directory.GetCurrentDirectory();
-        
-        // If current directory is in bin/obj, use Application.StartupPath instead
-        if (startPath.Contains(@"\bin\") || startPath.Contains(@"\obj\"))
+        // Check in exe directory first (for compiled exe)
+        var exeDir = new DirectoryInfo(Application.StartupPath);
+        var exeCredsPath = Path.Combine(exeDir.FullName, "creds");
+        if (Directory.Exists(exeCredsPath))
         {
-            startPath = Application.StartupPath;
+            return exeDir.FullName;
         }
 
-        var currentDir = new DirectoryInfo(startPath);
-        
-        // Walk up the directory tree to find the project root
-        // Project root is identified by presence of "creds" folder
+        // Walk up from exe directory to find project root
+        var currentDir = exeDir;
         while (currentDir != null)
         {
             var credsPath = Path.Combine(currentDir.FullName, "creds");
@@ -356,39 +379,23 @@ public partial class MainForm : Form
             {
                 return currentDir.FullName;
             }
-
-            // If we're in "sharp" folder, go up one level to find "creds"
-            if (currentDir.Name.Equals("sharp", StringComparison.OrdinalIgnoreCase))
-            {
-                var parentDir = currentDir.Parent;
-                if (parentDir != null)
-                {
-                    var parentCredsPath = Path.Combine(parentDir.FullName, "creds");
-                    if (Directory.Exists(parentCredsPath))
-                    {
-                        return parentDir.FullName;
-                    }
-                }
-            }
-
             currentDir = currentDir.Parent;
         }
 
-        // Fallback: try going up from Application.StartupPath
-        // This handles the case when running from bin/Debug/net8.0-windows
-        var startupDir = new DirectoryInfo(Application.StartupPath);
-        for (int i = 0; i < 6 && startupDir != null; i++)
+        // Fallback: try from current working directory (for dotnet run)
+        var workDir = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (workDir != null)
         {
-            var credsPath = Path.Combine(startupDir.FullName, "creds");
+            var credsPath = Path.Combine(workDir.FullName, "creds");
             if (Directory.Exists(credsPath))
             {
-                return startupDir.FullName;
+                return workDir.FullName;
             }
-            startupDir = startupDir.Parent;
+            workDir = workDir.Parent;
         }
 
-        // Last resort: return a path that might work
-        return Path.GetFullPath(Path.Combine(Application.StartupPath, "..", "..", "..", "..", ".."));
+        // Last resort: return exe directory
+        return exeDir.FullName;
     }
 }
 

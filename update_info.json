@@ -1,0 +1,30 @@
+[
+  {
+    "FileName": "heat_db.ini",
+    "IsSelected": false
+  },
+  {
+    "FileName": "ops.ini",
+    "IsSelected": false
+  },
+  {
+    "FileName": "ops_db.ini",
+    "IsSelected": false
+  },
+  {
+    "FileName": "scs.ini",
+    "IsSelected": false
+  },
+  {
+    "FileName": "scs_db.ini",
+    "IsSelected": false
+  },
+  {
+    "FileName": "vent.ini",
+    "IsSelected": true
+  },
+  {
+    "FileName": "",
+    "IsSelected": false
+  }
+]
