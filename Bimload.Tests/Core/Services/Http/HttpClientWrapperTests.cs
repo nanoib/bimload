@@ -139,5 +139,124 @@ public class HttpClientWrapperTests
         var act = async () => await wrapper.GetLatestFileAsync("https://example.com/distrs/", @"<span class=""name"">([^<]+)</span>");
         await act.Should().ThrowAsync<HttpRequestException>();
     }
+
+    [Fact]
+    public async Task GetLatestFileAsync_ShouldThrowOperationCanceled_WhenCancelled()
+    {
+        // Arrange
+        var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+        mockHttpMessageHandler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Returns<HttpRequestMessage, CancellationToken>((request, ct) =>
+            {
+                ct.ThrowIfCancellationRequested();
+                return Task.FromResult(new HttpResponseMessage { StatusCode = HttpStatusCode.OK });
+            });
+
+        var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+        var wrapper = new HttpClientWrapper(httpClient);
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert
+        var act = async () => await wrapper.GetLatestFileAsync("https://example.com/distrs/", @"<span class=""name"">([^<]+)</span>", cts.Token);
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task DownloadFileAsync_ShouldThrowOperationCanceled_WhenCancelled()
+    {
+        // Arrange
+        var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+        mockHttpMessageHandler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Returns<HttpRequestMessage, CancellationToken>((request, ct) =>
+            {
+                ct.ThrowIfCancellationRequested();
+                return Task.FromResult(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent("test", Encoding.UTF8, "application/octet-stream")
+                });
+            });
+
+        var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+        var wrapper = new HttpClientWrapper(httpClient);
+        var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".tmp");
+        var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        try
+        {
+            // Act & Assert
+            var act = async () => await wrapper.DownloadFileAsync("https://example.com/file.exe", tempFile, cts.Token);
+            await act.Should().ThrowAsync<OperationCanceledException>();
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+            {
+                File.Delete(tempFile);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task DownloadFileAsync_ShouldCallProgressCallback()
+    {
+        // Arrange
+        var fileContent = new string('a', 16384); // 16KB
+        var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+        mockHttpMessageHandler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(fileContent, Encoding.UTF8, "application/octet-stream")
+            });
+
+        var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+        var wrapper = new HttpClientWrapper(httpClient);
+        var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".tmp");
+        var progressCallbackCalled = false;
+        long? totalBytes = null;
+        long downloadedBytes = 0;
+
+        Action<long, long?> progressCallback = (downloaded, total) =>
+        {
+            progressCallbackCalled = true;
+            downloadedBytes = downloaded;
+            totalBytes = total;
+        };
+
+        try
+        {
+            // Act
+            await wrapper.DownloadFileAsync("https://example.com/file.exe", tempFile, progressCallback: progressCallback);
+
+            // Assert
+            progressCallbackCalled.Should().BeTrue();
+            downloadedBytes.Should().BeGreaterThan(0);
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+            {
+                File.Delete(tempFile);
+            }
+        }
+    }
 }
 
