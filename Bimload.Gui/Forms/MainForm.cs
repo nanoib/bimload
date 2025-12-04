@@ -338,7 +338,7 @@ public partial class MainForm : Form
                     var projectRoot = FindProjectRoot();
                     var credsFolder = Path.Combine(projectRoot, "creds");
                     var iniFile = Path.Combine(credsFolder, fileName);
-                    var content = File.ReadAllText(iniFile);
+                    var content = await File.ReadAllTextAsync(iniFile);
                     var credentials = new CredentialsParser().Parse(content);
 
                     // Create progress callback for this update

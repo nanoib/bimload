@@ -6,6 +6,7 @@ namespace Bimload.Core.Services;
 public interface IWmiQueryWrapper
 {
     IEnumerable<ManagementObjectWrapper> Query(string query);
+    Task<IEnumerable<ManagementObjectWrapper>> QueryAsync(string query);
 }
 
 public class ManagementObjectWrapper

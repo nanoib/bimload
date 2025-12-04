@@ -25,8 +25,8 @@ public class UpdateServiceTests
             Version = "24.100.100"
         };
 
-        mockWmiService.Setup(w => w.GetLatestInstalledProgram("BIM Test Product"))
-            .Returns(installedProgram);
+        mockWmiService.Setup(w => w.GetLatestInstalledProgramAsync("BIM Test Product"))
+            .ReturnsAsync(installedProgram);
 
         mockVersionService.Setup(v => v.ExtractVersionFromProductVersion("24.100.100", @".*\.(\d+)$"))
             .Returns("100");
@@ -91,8 +91,12 @@ public class UpdateServiceTests
 
         // Setup: first call returns old version, subsequent calls return new version
         var callCount = 0;
-        mockWmiService.Setup(w => w.GetLatestInstalledProgram("BIM Test Product"))
-            .Returns(() => callCount++ == 0 ? installedProgram : updatedProgram);
+        mockWmiService.Setup(w => w.GetLatestInstalledProgramAsync("BIM Test Product"))
+            .ReturnsAsync(() => 
+            {
+                var result = callCount++ == 0 ? installedProgram : updatedProgram;
+                return result;
+            });
 
         mockVersionService.Setup(v => v.ExtractVersionFromProductVersion("24.100.100", @".*\.(\d+)$"))
             .Returns("100");

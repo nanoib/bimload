@@ -36,8 +36,8 @@ public class UpdateService : IUpdateService
 
         _logger.Log($"Начало обновления для продукта: {credentials.ProductName}");
 
-        // Get installed program
-        var installedProgram = _wmiService.GetLatestInstalledProgram(credentials.ProductName ?? string.Empty);
+        // Get installed program (async to avoid blocking UI)
+        var installedProgram = await _wmiService.GetLatestInstalledProgramAsync(credentials.ProductName ?? string.Empty);
         
         // Calculate pcLatestVersion
         string? pcLatestVersion = null;
@@ -168,8 +168,8 @@ public class UpdateService : IUpdateService
         await _programInstaller.InstallProgramAsync(localFilePath);
         _logger.Log("Новая версия установлена", LogLevel.Success);
 
-        // Verify installation
-        var updatedProgram = _wmiService.GetLatestInstalledProgram(credentials.ProductName ?? string.Empty);
+        // Verify installation (async to avoid blocking UI)
+        var updatedProgram = await _wmiService.GetLatestInstalledProgramAsync(credentials.ProductName ?? string.Empty);
         var newVersion = updatedProgram != null && !string.IsNullOrWhiteSpace(credentials.ProductVersionPattern)
             ? _versionService.ExtractVersionFromProductVersion(updatedProgram.Version ?? string.Empty, credentials.ProductVersionPattern)
             : null;

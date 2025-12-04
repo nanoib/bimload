@@ -57,21 +57,23 @@ public class ProgramInstaller : IProgramInstaller
         }
 
         // Use WMI to uninstall the program
-        // This requires finding the program by name and calling Uninstall()
-        using var searcher = new System.Management.ManagementObjectSearcher(
-            $"SELECT * FROM Win32_Product WHERE Name = '{program.Name.Replace("'", "''")}'");
-        
-        var collection = searcher.Get();
-        foreach (System.Management.ManagementObject obj in collection)
+        // Execute in background thread to avoid blocking UI
+        await Task.Run(() =>
         {
-            var result = obj.InvokeMethod("Uninstall", null);
-            if (result != null && Convert.ToInt32(result) != 0)
+            // This requires finding the program by name and calling Uninstall()
+            using var searcher = new System.Management.ManagementObjectSearcher(
+                $"SELECT * FROM Win32_Product WHERE Name = '{program.Name.Replace("'", "''")}'");
+            
+            var collection = searcher.Get();
+            foreach (System.Management.ManagementObject obj in collection)
             {
-                throw new InvalidOperationException($"Uninstall failed with return code: {result}");
+                var result = obj.InvokeMethod("Uninstall", null);
+                if (result != null && Convert.ToInt32(result) != 0)
+                {
+                    throw new InvalidOperationException($"Uninstall failed with return code: {result}");
+                }
             }
-        }
-
-        await Task.CompletedTask;
+        });
     }
 }
 
