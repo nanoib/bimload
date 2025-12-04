@@ -276,3 +276,4 @@ await process.WaitForExitAsync();
 4. **Только Windows**: Приложение работает только на Windows из-за использования WMI
 
 
+
