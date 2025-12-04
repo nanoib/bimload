@@ -29,11 +29,17 @@ public class RichTextBoxLogger : ILogger
     {
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
+        // Ensure we have a valid font
+        if (_richTextBox.Font == null)
+        {
+            _richTextBox.Font = new Font("Consolas", 9);
+        }
+
         // Add timestamp in gray
         _richTextBox.SelectionStart = _richTextBox.TextLength;
         _richTextBox.SelectionLength = 0;
         _richTextBox.SelectionColor = Color.Gray;
-        _richTextBox.SelectionFont = new Font(_richTextBox.Font, FontStyle.Regular);
+        _richTextBox.SelectionFont = new Font(_richTextBox.Font.FontFamily, _richTextBox.Font.Size, FontStyle.Regular);
         _richTextBox.AppendText($"[{timestamp}] ");
 
         // Add message with appropriate color and style
@@ -68,9 +74,11 @@ public class RichTextBoxLogger : ILogger
         }
 
         _richTextBox.SelectionColor = messageColor;
-        _richTextBox.SelectionFont = new Font(_richTextBox.Font, messageStyle);
+        _richTextBox.SelectionFont = new Font(_richTextBox.Font.FontFamily, _richTextBox.Font.Size, messageStyle);
         _richTextBox.AppendText($"{message}{Environment.NewLine}");
 
+        // Auto-scroll to bottom
+        _richTextBox.SelectionStart = _richTextBox.TextLength;
         _richTextBox.ScrollToCaret();
     }
 }

@@ -77,18 +77,20 @@ public partial class MainForm : Form
         MinimumSize = new Size(formWidth, formHeight);
         MaximumSize = new Size(formWidth, 1500);
 
-        // Create SplitContainer
+        // Create SplitContainer for table and logs
         _splitContainer = new SplitContainer
         {
             Dock = DockStyle.Fill,
             Orientation = Orientation.Horizontal,
-            FixedPanel = FixedPanel.Panel2,
+            FixedPanel = FixedPanel.None,
             IsSplitterFixed = false,
             BorderStyle = BorderStyle.None,
-            SplitterWidth = 20
+            SplitterWidth = 8,
+            SplitterDistance = 300  // Initial split position
         };
+        Controls.Add(_splitContainer);
 
-        // Create DataGridView
+        // Create DataGridView in top panel of split container
         _dataGridView = new DataGridView
         {
             Dock = DockStyle.Fill,
@@ -102,8 +104,38 @@ public partial class MainForm : Form
             BorderStyle = BorderStyle.None
         };
 
-        _splitContainer.Panel1.Padding = new Padding(10, 10, 10, 0);
+        _splitContainer.Panel1.Padding = new Padding(10, 10, 10, 0);  // No bottom padding
         _splitContainer.Panel1.Controls.Add(_dataGridView);
+
+        // Create buttons panel under DataGridView
+        var buttonsPanel = new Panel
+        {
+            Dock = DockStyle.Bottom,
+            Height = 45,
+            Padding = new Padding(10, 5, 10, 5)
+        };
+        _splitContainer.Panel1.Controls.Add(buttonsPanel);
+
+        // Create buttons in buttons panel
+        _toggleAllButton = new Button
+        {
+            Text = "Выбрать все",
+            AutoSize = true,
+            Location = new Point(10, 5),
+            Padding = new Padding(5, 2, 5, 2)
+        };
+        _toggleAllButton.Click += ToggleAllButton_Click;
+        buttonsPanel.Controls.Add(_toggleAllButton);
+
+        _updateButton = new Button
+        {
+            Text = "Обновить",
+            AutoSize = true,
+            Location = new Point(_toggleAllButton.Right + 30, 5),
+            Padding = new Padding(5, 2, 5, 2)
+        };
+        _updateButton.Click += UpdateButton_Click;
+        buttonsPanel.Controls.Add(_updateButton);
 
         // Add columns
         var checkBoxColumn = new DataGridViewCheckBoxColumn { HeaderText = "" };
@@ -135,60 +167,53 @@ public partial class MainForm : Form
         statusColumn.ReadOnly = true;
         _dataGridView.Columns.Add(statusColumn);
 
-        // Create bottom panel
-        var bottomPanel = new Panel { Dock = DockStyle.Fill };
+        // Create bottom panel for logs and status
+        var bottomPanel = new Panel 
+        { 
+            Dock = DockStyle.Fill,
+            MinimumSize = new Size(0, 150)  // Ensure minimum height
+        };
+        _splitContainer.Panel2.Padding = new Padding(0);  // No padding in Panel2
         _splitContainer.Panel2.Controls.Add(bottomPanel);
 
-        // Create buttons
-        _toggleAllButton = new Button
-        {
-            Text = "Выбрать все",
-            AutoSize = true,
-            Location = new Point(10, 10),
-            Padding = new Padding(5, 2, 5, 2)
-        };
-        _toggleAllButton.Click += ToggleAllButton_Click;
-        bottomPanel.Controls.Add(_toggleAllButton);
-
-        _updateButton = new Button
-        {
-            Text = "Обновить",
-            AutoSize = true,
-            Location = new Point(_toggleAllButton.Right + 30, 10),
-            Padding = new Padding(5, 2, 5, 2)
-        };
-        _updateButton.Click += UpdateButton_Click;
-        bottomPanel.Controls.Add(_updateButton);
-
-        // Create RichTextBox for logs
-        _logTextBox = new RichTextBox
-        {
-            Location = new Point(10, _toggleAllButton.Bottom + 10),
-            Width = bottomPanel.Width - 20,
-            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom,
-            ReadOnly = true,
-            HideSelection = true,
-            TabStop = false,
-            Cursor = Cursors.Arrow
-        };
-        bottomPanel.Controls.Add(_logTextBox);
-
-        // Create status label
+        // Create status label at the bottom - MUST be added FIRST
         _statusLabel = new Label
         {
             Text = "Готов к обновлению",
-            AutoSize = false,
-            Width = bottomPanel.Width - 20,
-            Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
+            Dock = DockStyle.Bottom,
+            Height = 28,
+            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = SystemColors.Control,
+            Padding = new Padding(5, 5, 5, 5),
+            TextAlign = ContentAlignment.MiddleLeft
         };
         bottomPanel.Controls.Add(_statusLabel);
 
-        // Update positions on resize
+        // Create RichTextBox for logs - MUST be added AFTER status label
+        // Use Anchor instead of Dock to prevent overlapping with status label
+        _logTextBox = new RichTextBox
+        {
+            Location = new Point(0, 0),
+            Size = new Size(bottomPanel.Width, bottomPanel.Height - _statusLabel.Height),
+            Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+            ReadOnly = true,
+            HideSelection = true,
+            TabStop = false,
+            Cursor = Cursors.Arrow,
+            Font = new Font("Consolas", 9),
+            BackColor = Color.White,
+            Multiline = true,
+            WordWrap = true,
+            ScrollBars = RichTextBoxScrollBars.Vertical,
+            AcceptsTab = false
+        };
+        bottomPanel.Controls.Add(_logTextBox);
+        
+        // Update RichTextBox size when panel resizes
         bottomPanel.Resize += (s, e) =>
         {
-            _statusLabel.Location = new Point(10, bottomPanel.Height - _statusLabel.Height);
-            _logTextBox.Height = bottomPanel.Height - _logTextBox.Top - _statusLabel.Height - 10;
-            _logTextBox.Width = bottomPanel.Width - 20;
+            _logTextBox.Width = bottomPanel.Width;
+            _logTextBox.Height = bottomPanel.Height - _statusLabel.Height;
         };
 
         Controls.Add(_splitContainer);
@@ -282,7 +307,9 @@ public partial class MainForm : Form
         }
 
         _statusLabel.Text = "Обновление завершено";
+        _statusLabel.Refresh();
         _updateButton.Enabled = true;
+        _toggleAllButton.Enabled = true;
     }
 
     private static string FindProjectRoot()
